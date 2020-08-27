@@ -40,9 +40,9 @@ inline Expr MakeConv(Expr data, Expr weight, Array<IndexExpr> strides, Array<Ind
                      Array<IndexExpr> kernel_size, std::string data_layout,
                      std::string kernel_layout, std::string out_layout, DataType out_dtype,
                      std::string op_name) {
-  auto attrs = make_object<T>();
-  attrs->strides = std::move(strides);
-  attrs->padding = std::move(padding);
+  auto attrs = make_object<T>();                    // 以Conv2d为例，这里获取了一个默认的Conv2DAttrs
+  attrs->strides = std::move(strides);              // TVM的Runtime中将这些对象使用Object去抽象，使用同一套内存管理
+  attrs->padding = std::move(padding);              // 跳进去看一下
   attrs->dilation = std::move(dilation);
   attrs->groups = groups;
   attrs->channels = std::move(channels);
@@ -51,8 +51,8 @@ inline Expr MakeConv(Expr data, Expr weight, Array<IndexExpr> strides, Array<Ind
   attrs->kernel_layout = std::move(kernel_layout);
   attrs->out_layout = std::move(out_layout);
   attrs->out_dtype = std::move(out_dtype);
-  const Op& op = Op::Get(op_name);
-  return Call(op, {data, weight}, Attrs(attrs), {});
+  const Op& op = Op::Get(op_name);                  // 根据Name获取Op的引用
+  return Call(op, {data, weight}, Attrs(attrs), {});// 将op, 输入, 参数打包成一个Call对象，返回回去
 }
 
 template <typename T>

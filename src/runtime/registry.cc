@@ -86,15 +86,19 @@ bool Registry::Remove(const std::string& name) {
 const PackedFunc* Registry::Get(const std::string& name) {
   Manager* m = Manager::Global();
   std::lock_guard<std::mutex> lock(m->mutex);
-  auto it = m->fmap.find(name);
+  auto it = m->fmap.find(name);                 // 根据name，找到Manager中fmap中所对应的那个Registry
   if (it == m->fmap.end()) return nullptr;
-  return &(it->second->func_);
+  return &(it->second->func_);                  // 获取Registry中的PackedFunc对象
 }
 
 std::vector<std::string> Registry::ListNames() {
-  Manager* m = Manager::Global();
+  Manager* m = Manager::Global();               // 获取一个static的Manager对象的指针
+                                                // Manager中维护了一个mutex，一个unordered_map<std::string, Registry*> fmap
+                                                // 这里再看一下Registry的数据结构
+                                                // 其中只有两个数据成员: std::string name_; PackedFunc func_;
+                                                // 所以也很清楚了，这个Registry其实就是对一个Function的封装
   std::lock_guard<std::mutex> lock(m->mutex);
-  std::vector<std::string> keys;
+  std::vector<std::string> keys;                // 遍历fmap，返回了其所有元素的first
   keys.reserve(m->fmap.size());
   for (const auto& kv : m->fmap) {
     keys.push_back(kv.first);
@@ -123,7 +127,7 @@ int TVMFuncRegisterGlobal(const char* name, TVMFunctionHandle f, int override) {
   API_END();
 }
 
-int TVMFuncGetGlobal(const char* name, TVMFunctionHandle* out) {
+int TVMFuncGetGlobal(const char* name, TVMFunctionHandle* out) {        // 根据传入进来的name，获取name对应的那个PackedFunc，并返回回去
   API_BEGIN();
   const tvm::runtime::PackedFunc* fp = tvm::runtime::Registry::Get(name);
   if (fp != nullptr) {
@@ -136,13 +140,16 @@ int TVMFuncGetGlobal(const char* name, TVMFunctionHandle* out) {
 
 int TVMFuncListGlobalNames(int* out_size, const char*** out_array) {
   API_BEGIN();
-  TVMFuncThreadLocalEntry* ret = TVMFuncThreadLocalStore::Get();
-  ret->ret_vec_str = tvm::runtime::Registry::ListNames();
-  ret->ret_vec_charp.clear();
-  for (size_t i = 0; i < ret->ret_vec_str.size(); ++i) {
+  TVMFuncThreadLocalEntry* ret = TVMFuncThreadLocalStore::Get();  // 获取一个static的TVMFuncThreadLocalEntry对象的指针
+                                                                  // 这个对象中维护的是一个vector<string>和一个vector<const char *>
+                                                                  // 从下面的代码看这两者实际存的东西是一样的
+  ret->ret_vec_str = tvm::runtime::Registry::ListNames();         // 获取了在Manager中注册的所有Registry所对应的name，
+                                                                  // 这里的Registry是TVM对PackedFunc的封装，可以跳进去看
+  ret->ret_vec_charp.clear();                                     // 到此剩下的一个问题就是这些Registry什么时候注册的，不过现在先不急
+  for (size_t i = 0; i < ret->ret_vec_str.size(); ++i) {          
     ret->ret_vec_charp.push_back(ret->ret_vec_str[i].c_str());
   }
-  *out_array = dmlc::BeginPtr(ret->ret_vec_charp);
+  *out_array = dmlc::BeginPtr(ret->ret_vec_charp);                // 将这些const char*类型的name作为返回值返回回去
   *out_size = static_cast<int>(ret->ret_vec_str.size());
   API_END();
 }

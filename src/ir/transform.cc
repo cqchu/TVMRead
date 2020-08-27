@@ -53,11 +53,11 @@ struct PassContextThreadLocalEntry {
 /*! \brief Thread local store to hold the pass context. */
 typedef dmlc::ThreadLocalStore<PassContextThreadLocalEntry> RelayPassContextThreadLocalStore;
 
-void PassContext::EnterWithScope() {
+void PassContext::EnterWithScope() {    
   PassContextThreadLocalEntry* entry = RelayPassContextThreadLocalStore::Get();
-  entry->context_stack.push(*this);
-}
-
+  entry->context_stack.push(*this);     // 系统中维护一个thread_local的static的PassContextThreadLocalEntry对象
+}                                       // 将自己这个PassContext加入PassContextThreadLocalEntry对象的context_stack中
+                                        // 自己这个PassContext只设置了opt_level
 void PassContext::ExitWithScope() {
   PassContextThreadLocalEntry* entry = RelayPassContextThreadLocalStore::Get();
   CHECK(!entry->context_stack.empty());
@@ -455,7 +455,7 @@ TVM_REGISTER_NODE_TYPE(PassContextNode);
 TVM_REGISTER_GLOBAL("transform.PassContext")
     .set_body_typed([](int opt_level, Array<String> required, Array<String> disabled,
                        TraceFunc trace_func, Optional<Map<String, ObjectRef>> config) {
-      auto pctx = PassContext::Create();
+      auto pctx = PassContext::Create();          // 创建默认PassContext
       pctx->opt_level = opt_level;
 
       pctx->required_pass = std::move(required);
@@ -464,7 +464,7 @@ TVM_REGISTER_GLOBAL("transform.PassContext")
       if (config.defined()) {
         pctx->config = config.value();
       }
-      PassConfigManager::Global()->Legalize(&(pctx->config));
+      PassConfigManager::Global()->Legalize(&(pctx->config)); // 大多数情况下这个config均为空，所以这里没做任何事，这里先不看了
       return pctx;
     });
 
@@ -498,9 +498,9 @@ class PassContext::Internal {
 
 TVM_REGISTER_GLOBAL("transform.GetCurrentPassContext").set_body_typed(PassContext::Current);
 
-TVM_REGISTER_GLOBAL("transform.EnterPassContext").set_body_typed(PassContext::Internal::EnterScope);
+TVM_REGISTER_GLOBAL("transform.EnterPassContext").set_body_typed(PassContext::Internal::EnterScope);  // 调用PassContext::EnterWithScope
 
-TVM_REGISTER_GLOBAL("transform.ExitPassContext").set_body_typed(PassContext::Internal::ExitScope);
+TVM_REGISTER_GLOBAL("transform.ExitPassContext").set_body_typed(PassContext::Internal::ExitScope);    // 调用PassContext::ExitWithScope
 
 Pass PrintIR(String header, bool show_meta_data) {
   auto pass_func = [header, show_meta_data](IRModule mod, const PassContext& ctx) {

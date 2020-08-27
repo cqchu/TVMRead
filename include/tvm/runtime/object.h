@@ -833,7 +833,7 @@ inline bool Object::IsInstance() const {
 }
 
 template <typename ObjectType>
-inline const ObjectType* ObjectRef::as() const {
+inline const ObjectType* ObjectRef::as() const {    // 若是目标类型，则返回data_，也即那个Node成员
   if (data_ != nullptr && data_->IsInstance<ObjectType>()) {
     return static_cast<ObjectType*>(data_.get());
   } else {
@@ -842,13 +842,18 @@ inline const ObjectType* ObjectRef::as() const {
 }
 
 template <typename RefType, typename ObjType>
-inline RefType GetRef(const ObjType* ptr) {
+inline RefType GetRef(const ObjType* ptr) {     // 根据一个*Node，返回其Ref封装
   static_assert(std::is_base_of<typename RefType::ContainerType, ObjType>::value,
                 "Can only cast to the ref of same container type");
   if (!RefType::_type_is_nullable) {
     CHECK(ptr != nullptr);
   }
+  
   return RefType(ObjectPtr<Object>(const_cast<Object*>(static_cast<const Object*>(ptr))));
+  // 其实等价于RefType(ObjectPtr<Object>(static_cast<Object*>(ptr)));
+  // 也不知道这个先const再const_cast的操作是图点啥
+  // 在这里模板实例化后变为 BaseFunc(ObjectPtr<Object>(ptr))，即用BaseFuncNode创建了一个BaseFunc
+
 }
 
 template <typename BaseType, typename ObjType>
@@ -859,7 +864,7 @@ inline ObjectPtr<BaseType> GetObjectPtr(ObjType* ptr) {
 }
 
 template <typename SubRef, typename BaseRef>
-inline SubRef Downcast(BaseRef ref) {
+inline SubRef Downcast(BaseRef ref) {       // 用一个父类Ref对象，通过其*Node构造一个子类Ref类对象
   if (ref.defined()) {
     CHECK(ref->template IsInstance<typename SubRef::ContainerType>())
         << "Downcast from " << ref->GetTypeKey() << " to " << SubRef::ContainerType::_type_key

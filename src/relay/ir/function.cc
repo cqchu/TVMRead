@@ -28,8 +28,8 @@ namespace relay {
 
 Function::Function(tvm::Array<Var> params, Expr body, Type ret_type,
                    tvm::Array<TypeVar> type_params, DictAttrs attrs) {
-  ObjectPtr<FunctionNode> n = make_object<FunctionNode>();
-  CHECK(params.defined());
+  ObjectPtr<FunctionNode> n = make_object<FunctionNode>();    // new了一个FunctionNode, 然后设置这个Node
+  CHECK(params.defined());                                    // 之后将设置好的Node赋值给data_
   CHECK(type_params.defined());
   n->params = std::move(params);
   n->body = std::move(body);

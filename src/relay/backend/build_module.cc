@@ -224,7 +224,7 @@ class RelayBuildModule : public runtime::ModuleNode {
   void Build(IRModule mod, const TargetsMap& targets, const tvm::Target& target_host) {
     targets_ = targets;
     target_host_ = target_host;
-    BuildRelay(mod, params_);
+    BuildRelay(mod, params_);             // 进行真正的编译
     // Clear compile engine so that tuning schedules can be changed between runs. See issue #6096.
     CompileEngine::Global()->Clear();
   }
@@ -239,17 +239,18 @@ class RelayBuildModule : public runtime::ModuleNode {
    *
    * \return relay::IRModule The updated Relay IR module after optimization.
    */
-  IRModule Optimize(IRModule relay_module, const TargetsMap& targets,
+  IRModule Optimize(IRModule relay_module, const TargetsMap& targets,       // IRModule中正常应该只有一个为"main"的GlobalVar映射到一个可以递归访问整个网络的Func
                     const std::unordered_map<std::string, runtime::NDArray>& params) {
     if (params.size()) {
       CHECK(relay_module->ContainGlobalVar("main")) << "Missing the main entry function";
-      GlobalVar main_glb_var = relay_module->GetGlobalVar("main");
-      Function main_func = Downcast<Function>(relay_module->Lookup(main_glb_var));
-      auto new_main = BindParamsByName(main_func, params);
-      IRModuleNode* relay_module_ptr = relay_module.CopyOnWrite();
-      relay_module_ptr->Update(main_glb_var, new_main);
+      GlobalVar main_glb_var = relay_module->GetGlobalVar("main");    // 获取之前设置IRModule时用"main"创建的那个GlobalVar
+      Function main_func = Downcast<Function>(relay_module->Lookup(main_glb_var));  // 获取网络对应的那个Func
+      auto new_main = BindParamsByName(main_func, params);            // 对原来的func进行bind，得到一个新func(基本没啥变化)，就FunctionNode::params稍微有点变化
+      IRModuleNode* relay_module_ptr = relay_module.CopyOnWrite();    // 获取一个新的IRModuleNode
+      relay_module_ptr->Update(main_glb_var, new_main);               // 将GlobalVar->NewFunc的映射存入这个新的IRModuleNode中
     }
 
+    // 添加了超级多的一系列的pass
     Array<Pass> pass_seqs;
     Array<runtime::String> entry_functions{"main"};
     pass_seqs.push_back(transform::RemoveUnusedFunctions(entry_functions));
@@ -299,16 +300,16 @@ class RelayBuildModule : public runtime::ModuleNode {
 
     // Create a sequential pass and perform optimizations.
     transform::Pass seq = transform::Sequential(pass_seqs);
-    if (targets.size() == 1) {
+    if (targets.size() == 1) {            // 用上述这些pass处理这个IRModule
       const auto& it = targets.begin();
-      With<Target> tctx((*it).second);
+      With<Target> tctx((*it).second);    // 构造了一个Target Context, Python里面构建的是Pass Context
       relay_module = seq(relay_module);
     } else {
       relay_module = seq(relay_module);
     }
 
     // Handle heterogeneous compilation.
-    transform::PassContext pass_ctx = PassContext::Current();
+    transform::PassContext pass_ctx = PassContext::Current();   // 获取一下当前的PassContext
     if (targets_.size() > 1) {
       Optional<Integer> opt_fallback_dev =
           pass_ctx->GetConfig("relay.fallback_device_type", Integer(static_cast<int>(kDLCPU)));
@@ -318,7 +319,7 @@ class RelayBuildModule : public runtime::ModuleNode {
     }
 
     // Fuse the operations if it is needed.
-    relay_module = transform::FuseOps()(relay_module);
+    relay_module = transform::FuseOps()(relay_module);      // 又是两个Pass
     relay_module = transform::InferType()(relay_module);
     // Inline the functions that have been lifted by the module scope.
     //
@@ -329,7 +330,7 @@ class RelayBuildModule : public runtime::ModuleNode {
     relay_module = transform::Inline()(relay_module);
     CHECK(relay_module.defined());
 
-    return relay_module;
+    return relay_module;            // 最终将一系列pass优化后的IR Module返回回去
   }
 
   /*!
@@ -421,9 +422,9 @@ class RelayBuildModule : public runtime::ModuleNode {
   void BuildRelay(IRModule relay_module,
                   const std::unordered_map<std::string, tvm::runtime::NDArray>& params) {
     // Relay IRModule -> IRModule optimizations.
-    relay_module = Optimize(relay_module, targets_, params);
+    relay_module = Optimize(relay_module, targets_, params);        // 用一系列Pass对Relay进行图优化
     // Get the updated function.
-    auto func = Downcast<Function>(relay_module->Lookup("main"));
+    auto func = Downcast<Function>(relay_module->Lookup("main"));   // 获取此时IRModule中的那个Func
 
     // Generate code for the updated function.
     graph_codegen_ = std::unique_ptr<GraphCodegen>(new GraphCodegen());
@@ -487,18 +488,18 @@ class RelayBuildModule : public runtime::ModuleNode {
   /*! \brief target host device */
   tvm::Target target_host_;
   /*! \brief parameters */
-  std::unordered_map<std::string, runtime::NDArray> params_;
+  std::unordered_map<std::string, runtime::NDArray> params_;      // 维护网络中的权值
   /*! \brief building output */
-  BuildOutput ret_;
+  BuildOutput ret_;                                               // 
 };
 
 runtime::Module RelayBuildCreate() {
-  auto exec = make_object<RelayBuildModule>();
-  return runtime::Module(exec);
-}
+  auto exec = make_object<RelayBuildModule>();  // runtime::Module这个ref类对RelayBuildModule这个Node类进行封装，然后返回回去
+  return runtime::Module(exec);                 // RelayBuildModule继承自ModuleNode
+}                                               // 这个构造过程平平无奇
 
 TVM_REGISTER_GLOBAL("relay.build_module._BuildModule").set_body([](TVMArgs args, TVMRetValue* rv) {
-  *rv = RelayBuildCreate();
+  *rv = RelayBuildCreate();                     // 返回runtime::Module对象
 });
 
 TVM_REGISTER_GLOBAL("relay.build_module.BindParamsByName")

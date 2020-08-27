@@ -90,8 +90,8 @@ Var::Var(Id vid, Type type_annotation) {
 
 TVM_REGISTER_NODE_TYPE(VarNode);
 
-TVM_REGISTER_GLOBAL("relay.ir.Var").set_body_typed([](String str, Type type_annotation) {
-  return Var(str, type_annotation);
+TVM_REGISTER_GLOBAL("relay.ir.Var").set_body_typed([](String str, Type type_annotation) {  // 将这个name -> body构造一个Registry，注册在Manager中
+  return Var(str, type_annotation);                                                        
 });
 
 TVM_STATIC_IR_FUNCTOR(ReprPrinter, vtable)

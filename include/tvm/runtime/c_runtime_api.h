@@ -146,8 +146,8 @@ typedef union {
   double v_float64;
   void* v_handle;
   const char* v_str;
-  DLDataType v_type;
-  TVMContext v_ctx;
+  DLDataType v_type;  // 对于一个数据的类型(包括向量化数据)的描述的结构体
+  TVMContext v_ctx;   // 描述设备信息的一个结构体，估计是表述这个Value是在什么设备的什么存储，Context
 } TVMValue;
 
 /*!

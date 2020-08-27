@@ -183,7 +183,7 @@ class TypeContext {
   }
 
  private:
-  TypeContext() {
+  TypeContext() {             // 私有的构造函数
     type_table_.resize(TypeIndex::kStaticIndexEnd, TypeInfo());
     type_table_[0].name = "runtime.Object";
   }

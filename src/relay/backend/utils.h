@@ -166,8 +166,8 @@ inline relay::Function BindParamsByName(
     relay::Function func, const std::unordered_map<std::string, runtime::NDArray>& params) {
   std::unordered_map<std::string, relay::Var> name_dict;
   std::unordered_set<relay::Var, ObjectPtrHash, ObjectPtrEqual> repeat_var;
-  for (auto arg : func->params) {
-    const auto& name = arg->name_hint();
+  for (auto arg : func->params) {         // 对于Func中的每个Var，将之插入到name_dict
+    const auto& name = arg->name_hint();  // 重复的Var插入repeat_var
     if (name_dict.count(name)) {
       repeat_var.insert(arg);
     } else {
@@ -180,17 +180,17 @@ inline relay::Function BindParamsByName(
     if (name_dict.count(kv.first) == 0) {
       continue;
     }
-    auto arg = name_dict.at(kv.first);
+    auto arg = name_dict.at(kv.first);      // 若传入进来的params和function中var同名
     if (repeat_var.count(arg)) {
       LOG(FATAL) << "Multiple args in the function have name " << kv.first;
     }
-    bind_dict[arg] = Constant(kv.second);
+    bind_dict[arg] = Constant(kv.second);   // 将这个名字对应权值构造常量，存在bind_dict中
   }
-  Expr bound_expr = relay::Bind(func, bind_dict);
+  Expr bound_expr = relay::Bind(func, bind_dict);                 // 进行真正的bind, bind里面似乎是没有用到上面定义的Constant对象
   Function ret = Downcast<Function>(bound_expr);
   CHECK(ret.defined()) << "The returning type is expected to be a Relay Function."
                        << "\n";
-  return ret;
+  return ret;               // 将bind之后的函数返回回去
 }
 
 /*!

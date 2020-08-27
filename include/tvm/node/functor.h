@@ -71,9 +71,9 @@ class NodeFunctor<R(const ObjectRef& n, Args...)> {
   /*! \brief refer to itself. */
   using TSelf = NodeFunctor<R(const ObjectRef& n, Args...)>;
   /*! \brief internal function table */
-  std::vector<FPointer> func_;
-
- public:
+  std::vector<FPointer> func_;                                          // 这一个NodeFunctor中有函数指针的Vector
+                                                                        // 这个类还重载了函数调用运算符
+ public:                                                                // 其调用就是调用传入进来的那个Expr参数的type对应的那个func_
   /*! \brief the result type of this functor */
   using result_type = R;
   /*!
@@ -91,10 +91,10 @@ class NodeFunctor<R(const ObjectRef& n, Args...)> {
    * \param args The additional arguments
    * \return The result.
    */
-  R operator()(const ObjectRef& n, Args... args) const {
+  R operator()(const ObjectRef& n, Args... args) const {                // 这个类还重载了函数调用运算符
     CHECK(can_dispatch(n)) << "NodeFunctor calls un-registered function on type "
                            << n->GetTypeKey();
-    return (*func_[n->type_index()])(n, std::forward<Args>(args)...);
+    return (*func_[n->type_index()])(n, std::forward<Args>(args)...);   // 调用传入进来的那个参数的type对应的那个func_
   }
   /*!
    * \brief set the dispacher for type TNode

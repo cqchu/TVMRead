@@ -162,10 +162,10 @@ class TypeVarEVisitor : private ExprVisitor {
 class VarVisitor : protected ExprVisitor, protected PatternVisitor {
  public:
   Array<Var> Free(const Expr& expr) {
-    this->VisitExpr(expr);
-    Array<Var> ret;
+    this->VisitExpr(expr);    // 显然这个函数解析了这个Expr出各个Var到自己的两个数据成员中了
+    Array<Var> ret;           // 还没细看完
     for (const auto& v : vars_.data) {
-      if (bound_vars_.set.count(v) == 0) {
+      if (bound_vars_.set.count(v) == 0) {    // 如果不是bound_vars_，就将之
         ret.push_back(v);
       }
     }
@@ -256,15 +256,18 @@ tvm::Array<TypeVar> AllTypeVars(const Type& type, const IRModule& mod) {
   return TypeVarEVisitor(mod).All(type);
 }
 
-tvm::Array<Var> FreeVars(const Expr& expr) { return VarVisitor().Free(expr); }
-
-tvm::Array<Var> BoundVars(const Expr& expr) { return VarVisitor().Bound(expr); }
+tvm::Array<Var> FreeVars(const Expr& expr) { return VarVisitor().Free(expr); }    // 根据一个Expr，返回一个Free Var的Array, 不过Var其实也是Expr的子类
+                                                                                  // 构造了一个匿名的VarVisitor对象，调用其Free()函数，有点点类似于静态函数的用法
+                                                                                  // 所谓的Free Var其实就是不局限于一个Let表达式或者Function的Var
+                                                                                  // 与之对应的就是Bound Var，其就是只在一个Expr内部有效的Var
+                                                                                  // 其最终返回的顺序是一个postDFS
+tvm::Array<Var> BoundVars(const Expr& expr) { return VarVisitor().Bound(expr); }  
 
 tvm::Array<Var> BoundVars(const Pattern& pat) { return VarVisitor().Bound(pat); }
 
 tvm::Array<Var> AllVars(const Expr& expr) { return VarVisitor().All(expr); }
 
-TVM_REGISTER_GLOBAL("relay.analysis.free_vars").set_body_typed(FreeVars);
+TVM_REGISTER_GLOBAL("relay.analysis.free_vars").set_body_typed(FreeVars);   // 对应函数体为FreeVars
 
 TVM_REGISTER_GLOBAL("relay.analysis.bound_vars").set_body([](TVMArgs args, TVMRetValue* ret) {
   ObjectRef x = args[0];

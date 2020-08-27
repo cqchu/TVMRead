@@ -122,7 +122,7 @@ def check_basic_block_normal_form(expr):
     return _ffi_api.check_basic_block_normal_form(expr)
 
 
-def free_vars(expr):
+def free_vars(expr):            # 调用了C++的free_vars函数，其注册在src/relay/analysis/util.cc:267
     """Get free Vars from expression expr in Post DFS order.
 
     Parameters

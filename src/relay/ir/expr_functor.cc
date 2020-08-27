@@ -185,12 +185,12 @@ Expr PostOrderRewrite(const Expr& expr, ExprRewriter* rewriter) {
 }
 
 Expr ExprMutator::VisitExpr(const Expr& expr) {
-  auto it = this->memo_.find(expr);
+  auto it = this->memo_.find(expr);     // 如果这个Expr已经访问过，则退出
   if (it != this->memo_.end()) {
     return it->second;
   } else {
-    Expr new_expr = ExprFunctor::VisitExpr(expr);
-    memo_[expr] = new_expr;
+    Expr new_expr = ExprFunctor::VisitExpr(expr); // 真正的visit
+    memo_[expr] = new_expr;                       // 用memo_记录一下
     return new_expr;
   }
 }
@@ -375,13 +375,13 @@ Pattern ExprMutator::VisitPattern(const Pattern& p) { return p; }
 Type ExprMutator::VisitType(const Type& t) { return t; }
 
 void ExprVisitor::VisitExpr(const Expr& expr) {
-  auto it = visit_counter_.find(expr.get());
-  if (it != visit_counter_.end()) {
+  auto it = visit_counter_.find(expr.get());          // 获取一下这个expr的指针
+  if (it != visit_counter_.end()) {                   // 若有就++
     ++it->second;
   } else {
-    using TParent = ExprFunctor<void(const Expr&)>;
-    TParent::VisitExpr(expr);
-    visit_counter_.insert({expr.get(), 1});
+    using TParent = ExprFunctor<void(const Expr&)>;   // 调用ExprFunctor<void(const Expr&)>::VisitExpr()来对Expr进行处理
+    TParent::VisitExpr(expr);                         // 看看这个函数的内容 ---- //TODO: 没看完
+    visit_counter_.insert({expr.get(), 1});           // 将这个Expr存到这个unordered_map中
   }
 }
 
@@ -539,19 +539,19 @@ class ExprBinder : public ExprMutator, PatternMutator {
 
 Expr Bind(const Expr& expr, const tvm::Map<Var, Expr>& args_map) {
   if (const FunctionNode* func = expr.as<FunctionNode>()) {
-    Expr new_body = ExprBinder(args_map).VisitExpr(func->body);
-    Array<Var> new_params;
+    Expr new_body = ExprBinder(args_map).VisitExpr(func->body);   // 构造了一个新的Function body
+    Array<Var> new_params;                                        // 找到在new func body和args_map中都出现的Var
     for (Var param : func->params) {
       if (!args_map.count(param)) {
         new_params.push_back(param);
       }
     }
-    if (new_body.same_as(func->body) && new_params.size() == func->params.size()) {
+    if (new_body.same_as(func->body) && new_params.size() == func->params.size()) {   // 说明输入是一个已经bind好的func则返回
       return expr;
     }
-    auto ret = Function(new_params, new_body, func->ret_type, func->type_params, func->attrs);
+    auto ret = Function(new_params, new_body, func->ret_type, func->type_params, func->attrs);  // 用new_params构建Function
     std::unordered_set<Var, ObjectPtrHash, ObjectPtrEqual> set;
-    for (const auto& v : FreeVars(expr)) {
+    for (const auto& v : FreeVars(expr)) {    // 找到前后两个Function中不同的free_var，也加入到new_params
       set.insert(v);
     }
     for (const auto& v : FreeVars(ret)) {
@@ -559,7 +559,7 @@ Expr Bind(const Expr& expr, const tvm::Map<Var, Expr>& args_map) {
         new_params.push_back(v);
       }
     }
-    ret = Function(new_params, new_body, func->ret_type, func->type_params, func->attrs);
+    ret = Function(new_params, new_body, func->ret_type, func->type_params, func->attrs);  // 用new_params构建新的Function，然后再返回回去
     CHECK_EQ(FreeVars(expr).size(), FreeVars(ret).size());
     return std::move(ret);
   } else {

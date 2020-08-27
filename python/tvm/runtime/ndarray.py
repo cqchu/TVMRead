@@ -190,7 +190,7 @@ class NDArray(NDArrayBase):
         raise ValueError("Unsupported target type %s" % str(type(target)))
 
 
-def context(dev_type, dev_id=0):
+def context(dev_type, dev_id=0):        # 根据(dev_type, dev_id)创建TVMContext
     """Construct a TVM context with given device type and id.
 
     Parameters
@@ -217,16 +217,16 @@ def context(dev_type, dev_id=0):
       assert tvm.context("gpu", 0) == tvm.gpu(0)
       assert tvm.context("cuda", 0) == tvm.gpu(0)
     """
-    if isinstance(dev_type, string_types):
+    if isinstance(dev_type, string_types):              # dev_type = "llvm -keys=cpu"
         if '-device=micro_dev' in dev_type:
             dev_type = TVMContext.STR2MASK['micro_dev']
-        else:
-            dev_type = dev_type.split()[0]
+        else:       
+            dev_type = dev_type.split()[0]              # dev_type = "llvm"
             if dev_type not in TVMContext.STR2MASK:
                 raise ValueError("Unknown device type %s" % dev_type)
-            dev_type = TVMContext.STR2MASK[dev_type]
-    return TVMContext(dev_type, dev_id)
-
+            dev_type = TVMContext.STR2MASK[dev_type]    # 将这个str "llvm"映射到一个整数 1 上
+    return TVMContext(dev_type, dev_id)                 # TVMContext(1, 0), 这个类是python中context的维护，底层并不需要C++的支持
+                                                        # 这里的(1, 0)表示llvm的第0个device
 
 def numpyasarray(np_data):
     """Return a TVMArray representation of a numpy array.

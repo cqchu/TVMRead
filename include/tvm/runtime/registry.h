@@ -268,11 +268,11 @@ class Registry {
   // Internal class.
   struct Manager;
 
- protected:
+ protected:             // 这些方法都先不管，先看这两个数据成员
   /*! \brief name of the function */
   std::string name_;
   /*! \brief internal packed function */
-  PackedFunc func_;
+  PackedFunc func_;     // 再看下这个PackedFunc的定义，其中就是用了C++11的function
   friend struct Manager;
 };
 
@@ -286,9 +286,11 @@ class Registry {
  *   });
  * \endcode
  */
+// 用OpName构造一个空的Registry，注册在Manager中，并返回这个Registry的引用
+// 然后将这个引用赋值给static __attribute__((unused)) ::tvm::runtime::Registry& __mk_##TVM##__COUNTER__
+// 这个赋值似乎是没什么用的
 #define TVM_REGISTER_GLOBAL(OpName) \
-  TVM_STR_CONCAT(TVM_FUNC_REG_VAR_DEF, __COUNTER__) = ::tvm::runtime::Registry::Register(OpName)
-
+  TVM_STR_CONCAT(TVM_FUNC_REG_VAR_DEF, __COUNTER__) = ::tvm::runtime::Registry::Register(OpName)  
 #define TVM_STRINGIZE_DETAIL(x) #x
 #define TVM_STRINGIZE(x) TVM_STRINGIZE_DETAIL(x)
 #define TVM_DESCRIBE(...) describe(__VA_ARGS__ "\n\nFrom:" __FILE__ ":" TVM_STRINGIZE(__LINE__))

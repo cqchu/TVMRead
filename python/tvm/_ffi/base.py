@@ -47,7 +47,7 @@ else:
 def _load_lib():
     """Load libary by searching possible path."""
     lib_path = libinfo.find_lib_path()
-    lib = ctypes.CDLL(lib_path[0], ctypes.RTLD_GLOBAL)
+    lib = ctypes.CDLL(lib_path[0], ctypes.RTLD_GLOBAL)  # load C++编译出来的libtvm.so文件
     lib.TVMGetLastError.restype = ctypes.c_char_p
     return lib, os.path.basename(lib_path[0])
 

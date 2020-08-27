@@ -36,7 +36,7 @@ except (RuntimeError, ImportError):
     from ._ctypes.packed_func import convert_to_tvm_func, _get_global_func, PackedFuncBase
 
 
-def register_object(type_key=None):
+def register_object(type_key=None):             # 这些Object其实在C++中已经注册过了，这里就是在Python重新注册一下，注册在一个dict类型的 OBJECT_TYPE 中
     """register object type.
 
     Parameters
@@ -57,9 +57,9 @@ def register_object(type_key=None):
     """
     object_name = type_key if isinstance(type_key, str) else type_key.__name__
 
-    def register(cls):
+    def register(cls):                                  
         """internal register function"""
-        if hasattr(cls, "_type_index"):
+        if hasattr(cls, "_type_index"):     
             tindex = cls._type_index
         else:
             tidx = ctypes.c_uint()
@@ -197,8 +197,8 @@ def register_func(func_name, f=None, override=False):
     return register
 
 
-def get_global_func(name, allow_missing=False):
-    """Get a global function by name
+def get_global_func(name, allow_missing=False):         # get_global_func("Var")
+    """Get a global function by name                    
 
     Parameters
     ----------
@@ -213,10 +213,10 @@ def get_global_func(name, allow_missing=False):
     func : PackedFunc
         The function to be returned, None if function is missing.
     """
-    return _get_global_func(name, allow_missing)
+    return _get_global_func(name, allow_missing)        # _get_global_func("Var")，根据名字获取C++的PackedFunc的指针，然后封装成python中的
+                                                        # PackedFunc对象，最后返回回去
 
-
-def list_global_func_names():
+def list_global_func_names():                           # 获取了TVM中所有的注册的Registry(其实就是PackedFunc)的名字
     """Get list of global functions registered.
 
     Returns
@@ -227,7 +227,7 @@ def list_global_func_names():
     plist = ctypes.POINTER(ctypes.c_char_p)()
     size = ctypes.c_uint()
 
-    check_call(_LIB.TVMFuncListGlobalNames(ctypes.byref(size),
+    check_call(_LIB.TVMFuncListGlobalNames(ctypes.byref(size),      # 这个函数应该获取是TVM中所有的注册的Registry的名字，追进去看看 - /src/runtime/registry.cc:137
                                            ctypes.byref(plist)))
     fnames = []
     for i in range(size.value):
@@ -266,7 +266,7 @@ def _get_api(f):
     return flocal
 
 
-def _init_api(namespace, target_module_name=None):
+def _init_api(namespace, target_module_name=None):      # _init_api("relay.ir", "tvm.relay._ffi_api")
     """Initialize api for a given module name
 
     namespace : str
@@ -280,23 +280,28 @@ def _init_api(namespace, target_module_name=None):
     if namespace.startswith("tvm."):
         _init_api_prefix(target_module_name, namespace[4:])
     else:
-        _init_api_prefix(target_module_name, namespace)
+        _init_api_prefix(target_module_name, namespace) #  此处再调用_init_api_prefix("tvm.relay._ffi_api", "relay.ir")
 
 
-def _init_api_prefix(module_name, prefix):
-    module = sys.modules[module_name]
-
-    for name in list_global_func_names():
+def _init_api_prefix(module_name, prefix):              # _init_api_prefix("tvm.relay._ffi_api", "relay.ir")
+    module = sys.modules[module_name]                   # 先获取tvm/relay/_ffi_api.py的handle
+    # print("################")
+    # print(module_name)
+    for name in list_global_func_names():               # 获取了C++中注册的所有PackedFunc函数，看一下怎么获得的
         if not name.startswith(prefix):
             continue
+        
+        fname = name[len(prefix)+1:]                    # 获取这个Registry的去除prefix后的名字，例如其C++ Registry名字为relay.ir.Var, 此处就变为了Var
+        target_module = module                          # tvm/relay/_ffi_api.py的handle
 
-        fname = name[len(prefix)+1:]
-        target_module = module
+        # if ("tvm.relay._ffi_api" == module_name):
+        #     print(name, fname)
 
         if fname.find(".") != -1:
             continue
-        f = get_global_func(name)
-        ff = _get_api(f)
+        f = get_global_func(name)                       # 这个应该是根据"Var"这个名字获取对应函数的handle，然后封装成的那个python PackedFunc对象的指针
+        ff = _get_api(f)                                # 把这个PackedFunc设置为global的
         ff.__name__ = fname
         ff.__doc__ = ("TVM PackedFunc %s. " % fname)
-        setattr(target_module, ff.__name__, ff)
+        # print(type(ff))
+        setattr(target_module, ff.__name__, ff)         # tvm/relay/_ffi_api中设置这个tvm.runtime.packed_func.PackedFunc对象的实例

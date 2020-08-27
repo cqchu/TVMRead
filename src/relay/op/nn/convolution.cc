@@ -52,6 +52,11 @@ Expr MakeConvGemmWeightTransform(Expr weight, int tile_rows, int tile_cols, std:
 }
 
 // relay.nn.conv1d
+// 可以看到为每个算子都做了三件事
+// 1. 调用TVM_REGISTER_NODE_TYPE注册这个算子参数Attributes类
+// 2. 调用TVM_REGISTER_GLOBAL注册这个算子一个Make函数，这个函数是将op, op的输入expr, op的params打包成一个Call类型的对象，这个Call类型继承自Relay::Expr
+// 3. 调用RELAY_REGISTER_OP将算子注册
+// 但这三点的执行顺序有一点疑问 -- 第二点只是注册一个函数体，而并没有真正的去执行它
 TVM_REGISTER_NODE_TYPE(Conv1DAttrs);
 
 TVM_REGISTER_GLOBAL("relay.op.nn._make.conv1d")
@@ -93,6 +98,7 @@ TVM_REGISTER_GLOBAL("relay.op.nn._make.conv2d")
                        Array<IndexExpr> dilation, int groups, IndexExpr channels,
                        Array<IndexExpr> kernel_size, String data_layout, String kernel_layout,
                        String out_layout, DataType out_dtype) {
+      // 那个python函数调用到最后其实就是这个
       return MakeConv<Conv2DAttrs>(data, weight, strides, padding, dilation, groups, channels,
                                    kernel_size, data_layout, kernel_layout, out_layout, out_dtype,
                                    "nn.conv2d");

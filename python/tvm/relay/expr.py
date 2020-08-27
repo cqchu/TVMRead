@@ -197,8 +197,8 @@ class Tuple(ExprWithOp):
         raise TypeError("astype cannot be used on tuple")
 
 
-@tvm._ffi.register_object("relay.Var")
-class Var(ExprWithOp):
+@tvm._ffi.register_object("relay.Var") # import这个文件的时候会注册一次
+class Var(ExprWithOp):            
     """A local variable in Relay.
 
     Local variable can be used to declare input
@@ -215,9 +215,14 @@ class Var(ExprWithOp):
         The type annotation on the variable.
     """
     def __init__(self, name_hint, type_annotation=None):
-        self.__init_handle_by_constructor__(
-            _ffi_api.Var, name_hint, type_annotation)
-
+        self.__init_handle_by_constructor__(            # __init_handle_by_constructor__在/tvm/_ffi/_ctypes/packed_func.py中230行处，跳过去看一下
+            _ffi_api.Var, name_hint, type_annotation)   # 构造这个对象，其中 _ffi_api.Var就是那个构造函数
+                                                        # _ffi_api是当前目录下的_ffi_api.py文件，追进去看看
+                                                        # 看完之后发现，C++中的很多函数指针，被封装成了python的tvm.runtime.packed_func.PackedFunc对象
+                                                        # 然后注册在tvm.relay._ffi_api底下
+                                                        # 所以现在问题就变成了Var()这个函数是如何在C++中注册的
+                                                        # grep之后发现这个类应该是声明在include/tvm/relay/expr.h中
+                                                        # 然后其在src/relay/ir/expr.cc中调用了TVM_REGISTER_GLOBAL()宏进行了注册
     @property
     def name_hint(self):
         """Get name hint of the current var."""
@@ -464,7 +469,7 @@ def var(name_hint,
         type_annotation = _ty.TensorType(shape, dtype)
     elif isinstance(type_annotation, str):
         type_annotation = _ty.TensorType((), type_annotation)
-    return Var(name_hint, type_annotation)
+    return Var(name_hint, type_annotation)  # 构造一个Var对象
 
 
 def const(value, dtype=None):

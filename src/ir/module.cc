@@ -38,10 +38,10 @@
 
 namespace tvm {
 
-IRModule::IRModule(tvm::Map<GlobalVar, BaseFunc> functions,
+IRModule::IRModule(tvm::Map<GlobalVar, BaseFunc> functions,             // 此时三个参数都是空的
                    tvm::Map<GlobalTypeVar, TypeData> type_definitions,
                    std::unordered_set<String> import_set) {
-  auto n = make_object<IRModuleNode>();
+  auto n = make_object<IRModuleNode>();                                 // 构造一个默认的IRModuleNode并赋值
   n->functions = std::move(functions);
   n->type_definitions = std::move(type_definitions);
   n->global_type_var_map_ = {};
@@ -63,7 +63,7 @@ IRModule::IRModule(tvm::Map<GlobalVar, BaseFunc> functions,
     n->global_type_var_map_.Set(kv.first->name_hint, kv.first);
     n->RegisterConstructors(kv.first, kv.second);
   }
-  data_ = std::move(n);
+  data_ = std::move(n);                                               // 将这个默认的IRModuleNode传给data_
 }
 
 bool IRModuleNode::SEqualReduce(const IRModuleNode* other, SEqualReducer equal) const {
@@ -184,10 +184,10 @@ tvm::Array<T> concat(const tvm::Array<T>& l, const tvm::Array<T>& r) {
 
 // helper function to run type check
 relay::Function RunTypeCheck(const IRModule& mod, const GlobalVar& var, relay::Function f) {
-  auto func = Downcast<relay::Function>(relay::DeDup(std::move(f)));
-  // Type check the item before we add it to the module.
+  auto func = Downcast<relay::Function>(relay::DeDup(std::move(f)));  // Deduplicate之后，Function类型的f变为Expr类型
+  // Type check the item before we add it to the module.              // 再用Downcast将回Function类型
   auto fv = relay::FreeVars(func);
-  auto ftv = relay::FreeTypeVars(func, mod);
+  auto ftv = relay::FreeTypeVars(func, mod);                          // 获取FreeTypeVars, Free type parameters are type parameters that are not bound by a function type in the context.
   if (fv.size() != 0) {
     LOG(WARNING) << "There are free variables: " << fv << " in function: " << AsText(func, false)
                  << std::endl;
@@ -196,21 +196,21 @@ relay::Function RunTypeCheck(const IRModule& mod, const GlobalVar& var, relay::F
     LOG(WARNING) << "There are free type variables: " << ftv
                  << " in function: " << AsText(func, false) << std::endl;
   }
-  func = relay::Function(concat(func->params, fv), func->body, func->ret_type,
+  func = relay::Function(concat(func->params, fv), func->body, func->ret_type,  // 构造一个新的Function
                          concat(func->type_params, ftv), func->attrs);
   // Type check the item before we add it to the module.
-  relay::Function checked_func = InferType(func, mod, var);
-  return checked_func;
+  relay::Function checked_func = InferType(func, mod, var);                     // 做InferType
+  return checked_func;                                                          // 把InferType后的Function返回回去
 }
 
 void IRModuleNode::Add(const GlobalVar& var, const BaseFunc& f, bool update) {
   BaseFunc checked_func = f;
-  if (auto* ptr = f.as<relay::FunctionNode>()) {
-    checked_func = RunTypeCheck(GetRef<IRModule>(this), var, GetRef<relay::Function>(ptr));
+  if (auto* ptr = f.as<relay::FunctionNode>()) {          // 对传入进来的Function做TypeCheck，这里先获取FunctionNode
+    checked_func = RunTypeCheck(GetRef<IRModule>(this), var, GetRef<relay::Function>(ptr)); // InferType并检测
   }
 
   Type type = checked_func->checked_type();
-  CHECK(type.as<relay::IncompleteTypeNode>() == nullptr);
+  CHECK(type.as<relay::IncompleteTypeNode>() == nullptr); // TypeCheck结果检测
 
   if (functions.find(var) != functions.end()) {
     CHECK(update) << "Already have definition for " << var->name_hint;
@@ -218,8 +218,10 @@ void IRModuleNode::Add(const GlobalVar& var, const BaseFunc& f, bool update) {
     CHECK(tvm::StructuralEqual()(type, old_type))
         << "Module#update changes type, not possible in this mode.";
   }
-  var->checked_type_ = type;
-  AddUnchecked(var, checked_func);
+  var->checked_type_ = type;          // 把这个GlobalVar的checked_type_设置为检测结果
+  AddUnchecked(var, checked_func);    // 这个GlobalVar以及InferType之后的Function构造一个映射
+                                      // 存在IRModuleNode::functions中
+                                      // 将GlobalVar::name_hint -> GlobalVar存在IRModuleNode::global_var_map_上
 }
 
 void IRModuleNode::AddUnchecked(const GlobalVar& var, const BaseFunc& func) {
@@ -328,24 +330,26 @@ void IRModuleNode::Update(const IRModule& mod) {
   }
 }
 
-IRModule IRModule::FromExpr(const RelayExpr& expr,
-                            const tvm::Map<GlobalVar, BaseFunc>& global_funcs,
+IRModule IRModule::FromExpr(const RelayExpr& expr,      // 构造IRModule，并建立GlobalVar -> Function的映射，存在IRModule的一个Map中
+                            const tvm::Map<GlobalVar, BaseFunc>& global_funcs,        // run.py中这两个参数全为空
                             const tvm::Map<GlobalTypeVar, TypeData>& type_definitions) {
-  auto mod = IRModule(global_funcs, type_definitions);
+  auto mod = IRModule(global_funcs, type_definitions);    // 用后两个参数构造一个IRModule, 其实就是全为空
   BaseFunc func;
   std::string gv_name = "main";
 
-  if (auto* func_node = expr.as<BaseFuncNode>()) {
-    func = GetRef<BaseFunc>(func_node);
-    if (auto opt = func->GetAttr<String>(tvm::attr::kGlobalSymbol)) {
+  if (auto* func_node = expr.as<BaseFuncNode>()) {  // 如果Expr中的data_已经是一个BaseFuncNode了，则返回Expr的data_指针
+                                                    // 其实也即Expr是一个Function了，这种情况即是run.py的情况
+    func = GetRef<BaseFunc>(func_node);             // 根据BaseFuncNode类型的指针创建BaseFunc对象
+                                                    // 而Function就继承自BaseFunc, FunctionNode就继承自BaseFuncNode
+    if (auto opt = func->GetAttr<String>(tvm::attr::kGlobalSymbol)) { // 如果func中已经设置好了GlobalSymbal的话，那么就用设置好的name，否则就用默认的main
       gv_name = opt.value();
     }
 
   } else {
     func = relay::Function(relay::FreeVars(expr), expr, Type(), relay::FreeTypeVars(expr, mod), {});
   }
-  auto main_gv = GlobalVar(gv_name);
-  mod->Add(main_gv, func);
+  auto main_gv = GlobalVar(gv_name);        // 设置一个默认的GlobalVar
+  mod->Add(main_gv, func);                  // 将这个GlobalVar和BaseFunc构造一个映射，存储在IRModule的data_所指的IRModuleNode的functions中
   return mod;
 }
 
@@ -446,7 +450,7 @@ TVM_REGISTER_GLOBAL("ir.Module_LookupTag").set_body_typed([](IRModule mod, int32
   return mod->LookupTag(tag);
 });
 
-TVM_REGISTER_GLOBAL("ir.Module_FromExpr")
+TVM_REGISTER_GLOBAL("ir.Module_FromExpr")   // 注册，在Demo程序中只有第一个参数不为空
     .set_body_typed([](RelayExpr e, tvm::Map<GlobalVar, BaseFunc> funcs,
                        tvm::Map<GlobalTypeVar, TypeData> type_defs) {
       return IRModule::FromExpr(e, funcs, type_defs);

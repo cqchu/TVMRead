@@ -219,7 +219,7 @@ class IRModule(Node):
         """
         funcs = functions if functions is not None else {}
         defs = type_defs if type_defs is not None else {}
-        return _ffi_api.Module_FromExpr(expr, funcs, defs)
+        return _ffi_api.Module_FromExpr(expr, funcs, defs)  # 在./src/ir/module.cc:449处注册: Module_FromExpr(expr, {}, {})
 
     def _import(self, file_to_import):
         return _ffi_api.Module_Import(self, file_to_import)

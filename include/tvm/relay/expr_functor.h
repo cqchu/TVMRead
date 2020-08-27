@@ -66,7 +66,9 @@ template <typename R, typename... Args>
 class ExprFunctor<R(const Expr& n, Args...)> {
  private:
   using TSelf = ExprFunctor<R(const Expr& n, Args...)>;
-  using FType = tvm::NodeFunctor<R(const ObjectRef& n, TSelf* self, Args...)>;
+  using FType = tvm::NodeFunctor<R(const ObjectRef& n, TSelf* self, Args...)>;    // 这一个NodeFunctor类中有函数指针的Vector
+                                                                                  // 这个类还重载了函数调用运算符
+                                                                                  // 其调用就是调用传入进来的那个Expr参数的type对应的那个func_
 
  public:
   /*! \brief the result type of this functor */
@@ -88,9 +90,12 @@ class ExprFunctor<R(const Expr& n, Args...)> {
    */
   virtual R VisitExpr(const Expr& n, Args... args) {
     CHECK(n.defined());
-    static FType vtable = InitVTable();
-    return vtable(n, this, std::forward<Args>(args)...);
-  }
+    static FType vtable = InitVTable();     // 获取一个NodeFunctor<R(const ObjectRef& n, TSelf* self, Args...)>类型的对象vtable
+                                            // 这个vtable中有一个函数指针的Vector，InitVtable()主要功能就是往这个函数指针Vector中添加函数指针
+                                            // @TODO: 没看完
+    return vtable(n, this, std::forward<Args>(args)...);  // 用这个vtable的函数调用运算符来对传入进来的Expr进行处理
+  }                                                       // 这个函数中会分析传入Expr的Type，然后从函数指针的Vector中找到对应的
+                                                          // 处理函数处理这个Expr
   // Functions that can be overriden by subclass
   virtual R VisitExpr_(const ConstantNode* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const TupleNode* op, Args... args) EXPR_FUNCTOR_DEFAULT;
@@ -115,12 +120,12 @@ class ExprFunctor<R(const Expr& n, Args...)> {
  private:
   // initialize the vtable.
   static FType InitVTable() {
-    FType vtable;
+    FType vtable;                                 // 在这个vtable中添加对不同Expr处理的指针
     // Set dispatch
-    RELAY_EXPR_FUNCTOR_DISPATCH(ConstantNode);
-    RELAY_EXPR_FUNCTOR_DISPATCH(TupleNode);
-    RELAY_EXPR_FUNCTOR_DISPATCH(VarNode);
-    RELAY_EXPR_FUNCTOR_DISPATCH(GlobalVarNode);
+    RELAY_EXPR_FUNCTOR_DISPATCH(ConstantNode);    // 其实处理的函数指针就是用自己的VisitExpr_()处理这些Node
+    RELAY_EXPR_FUNCTOR_DISPATCH(TupleNode);       // 但这个VisitExpr_()是一个虚函数，其是可能被override的
+    RELAY_EXPR_FUNCTOR_DISPATCH(VarNode);         // 所以就看后续谁继承它喽
+    RELAY_EXPR_FUNCTOR_DISPATCH(GlobalVarNode);   // TODO: 没看完
     RELAY_EXPR_FUNCTOR_DISPATCH(FunctionNode);
     RELAY_EXPR_FUNCTOR_DISPATCH(CallNode);
     RELAY_EXPR_FUNCTOR_DISPATCH(LetNode);
@@ -167,7 +172,7 @@ class ExprVisitor : public ::tvm::relay::ExprFunctor<void(const Expr& n)> {
 
  protected:
   // Internal visiting counter
-  std::unordered_map<const Object*, size_t> visit_counter_;
+  std::unordered_map<const Object*, size_t> visit_counter_; // 应该用于记录一个Expr被Visit了几次
 };
 
 /*!

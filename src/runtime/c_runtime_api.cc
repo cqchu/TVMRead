@@ -420,15 +420,15 @@ int TVMFuncFree(TVMFunctionHandle func) {
   API_END();
 }
 
-int TVMFuncCall(TVMFunctionHandle func, TVMValue* args, int* arg_type_codes, int num_args,
+int TVMFuncCall(TVMFunctionHandle func, TVMValue* args, int* arg_type_codes, int num_args,  // 
                 TVMValue* ret_val, int* ret_type_code) {
   API_BEGIN();
 
   TVMRetValue rv;
-  (*static_cast<const PackedFunc*>(func)).CallPacked(TVMArgs(args, arg_type_codes, num_args), &rv);
+  (*static_cast<const PackedFunc*>(func)).CallPacked(TVMArgs(args, arg_type_codes, num_args), &rv);   // 就是调用了PackedFunc的Callback函数
   // handle return string.
-  if (rv.type_code() == kTVMStr || rv.type_code() == kTVMDataType || rv.type_code() == kTVMBytes) {
-    TVMRuntimeEntry* e = TVMAPIRuntimeStore::Get();
+  if (rv.type_code() == kTVMStr || rv.type_code() == kTVMDataType || rv.type_code() == kTVMBytes) {   // 将C++的结果处理打包成Python能处理的东西
+    TVMRuntimeEntry* e = TVMAPIRuntimeStore::Get();                                                   // 然后返回回去
     if (rv.type_code() != kTVMDataType) {
       e->ret_str = *rv.ptr<std::string>();
     } else {

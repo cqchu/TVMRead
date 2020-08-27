@@ -47,10 +47,10 @@ TVM_FREE_PYOBJ = TVMCFuncFinalizer(_ctypes_free_resource)
 ctypes.pythonapi.Py_IncRef(ctypes.py_object(TVM_FREE_PYOBJ))
 
 
-def _make_packed_func(handle, is_global):
-    """Make a packed function class"""
-    obj = _CLASS_PACKED_FUNC.__new__(_CLASS_PACKED_FUNC)
-    obj.is_global = is_global
+def _make_packed_func(handle, is_global):       # 这里新建了一个_CLASS_PACKED_FUNC的对象，然后把C++得到的handle赋值给了这个对象的handle成员
+    """Make a packed function class"""          # 看一下这个_CLASS_PACKED_FUNC到底是个什么类
+    obj = _CLASS_PACKED_FUNC.__new__(_CLASS_PACKED_FUNC)    # 追根溯源之后，我们发现这个类其实是在tvm/runtime/packed_func.py中最后一行
+    obj.is_global = is_global                               # 被设为了PackedFunc类，过去看看
     obj.handle = handle
     return obj
 
@@ -107,7 +107,7 @@ def convert_to_tvm_func(pyfunc):
     return _make_packed_func(handle, False)
 
 
-def _make_tvm_args(args, temp_args):
+def _make_tvm_args(args, temp_args):        # 把Python的权值打包成TVM C++可以接收的TVMArgs
     """Pack arguments into c args tvm call accept"""
     num_args = len(args)
     values = (TVMValue * num_args)()
@@ -186,7 +186,7 @@ def _make_tvm_args(args, temp_args):
     return values, type_codes, num_args
 
 
-class PackedFuncBase(object):
+class PackedFuncBase(object):       # python中对packedfunc对象的抽象
     """Function base."""
     __slots__ = ["handle", "is_global"]
     # pylint: disable=no-member
@@ -228,20 +228,20 @@ class PackedFuncBase(object):
         return RETURN_SWITCH[ret_tcode.value](ret_val)
 
 
-def __init_handle_by_constructor__(fconstructor, args):
+def __init_handle_by_constructor__(fconstructor, args):         # 这里的fconstructor是对c++中一个函数的封装，其被封装成tvm.runtime.packed_func.PackedFunc
     """Initialize handle by constructor"""
     temp_args = []
-    values, tcodes, num_args = _make_tvm_args(args, temp_args)
+    values, tcodes, num_args = _make_tvm_args(args, temp_args)  # 将python的参数打包成C++可以接收的参数 - TVMArgs
     ret_val = TVMValue()
-    ret_tcode = ctypes.c_int()
-    if _LIB.TVMFuncCall(
-            fconstructor.handle, values, tcodes, ctypes.c_int(num_args),
+    ret_tcode = ctypes.c_int()                                  # 设置返回值等等
+    if _LIB.TVMFuncCall(                                        # 看来是用传进来的参数，构造函数构造一个对象了
+            fconstructor.handle, values, tcodes, ctypes.c_int(num_args),    # 看一看这个C++的TVMFuncCall的实现，以及这个fconstructor是咋来的
             ctypes.byref(ret_val), ctypes.byref(ret_tcode)) != 0:
         raise get_last_ffi_error()
     _ = temp_args
     _ = args
-    assert ret_tcode.value == ArgTypeCode.OBJECT_HANDLE
-    handle = ret_val.v_handle
+    assert ret_tcode.value == ArgTypeCode.OBJECT_HANDLE         # 断言这是一个对象
+    handle = ret_val.v_handle                                   # 获取这个对象的handle并返回回去
     return handle
 
 
@@ -261,13 +261,13 @@ def _handle_return_func(x):
     return _CLASS_PACKED_FUNC(handle, False)
 
 
-def _get_global_func(name, allow_missing=False):
-    handle = PackedFuncHandle()
-    check_call(_LIB.TVMFuncGetGlobal(c_str(name), ctypes.byref(handle)))
-
+def _get_global_func(name, allow_missing=False):                            # _get_global_func("Var")
+    handle = PackedFuncHandle()                                             # 这里定义了一个默认的PackedFuncHandle, 这个handle其实就是一个void *
+    check_call(_LIB.TVMFuncGetGlobal(c_str(name), ctypes.byref(handle)))    # 根据传入的"Var"找到其对应函数的handle，并赋值给上面定义的这个handle
+                                                                            # 再跳进去看这个C++函数 - /src/runtime/registry.cc:127
     if handle.value:
-        return _make_packed_func(handle, False)
-
+        return _make_packed_func(handle, False)                             # 用这个c++的PackedFunc类型指针构建最终的函数handle，跳进去看一下
+                                                                            # 看完之后发现，其就是用c++的handle构造了一个python中PackedFunc的对象
     if allow_missing:
         return None
 

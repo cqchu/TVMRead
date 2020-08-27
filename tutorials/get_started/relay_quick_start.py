@@ -99,6 +99,7 @@ target = tvm.target.cuda()
 with tvm.transform.PassContext(opt_level=opt_level):
     graph, lib, params = relay.build(mod, target, params=params)
 
+"""
 #####################################################################
 # Run the generate library
 # ------------------------
@@ -158,3 +159,4 @@ print(out_deploy.flatten()[0:10])
 
 # check whether the output from deployed module is consistent with original one
 tvm.testing.assert_allclose(out_deploy, out, atol=1e-3)
+"""

@@ -41,9 +41,12 @@ def _update_target(target):
 
     tgts = {}
     if isinstance(target, (str, _target.Target)):
-        dev_type = tvm_expr.IntImm("int32", _nd.context(str(target)).device_type)
-        tgts[dev_type] = _target.create(target)
-    elif isinstance(target, dict):
+        dev_type = tvm_expr.IntImm("int32", _nd.context(str(target)).device_type)   # IntImm是TVM Runtime对int的封装：tvm_expr.IntImm(dtype, value)
+                                                                                    # str(target)结果是llvm -keys=cpu
+                                                                                    # _nd.context("llvm -keys=cpu")创建了一个TVMContext对象
+                                                                                    # 然后获取device_type，此处就是llvm，对应的enum值就是1
+        tgts[dev_type] = _target.create(target)                                     # 前面已经创建了target，所以此处进去后会直接返回
+    elif isinstance(target, dict):                                                  
         for dev, tgt in target.items():
             dev_type = tvm_expr.IntImm("int32", _nd.context(dev).device_type)
             tgts[dev_type] = _target.create(tgt)
@@ -68,9 +71,9 @@ class BuildModule(object):
     to expose the `RelayBuildModule` APIs implemented in C++.
     """
     def __init__(self):
-        self.mod = _build_module._BuildModule()
-        self._get_graph_json = self.mod["get_graph_json"]
-        self._get_module = self.mod["get_module"]
+        self.mod = _build_module._BuildModule()             # ./src/relay/backend/build_module.cc:500, 是个runtime::Module类对象
+        self._get_graph_json = self.mod["get_graph_json"]   # Module::GetFunction()方法
+        self._get_module = self.mod["get_module"]           # 其又调用RelayBuildModule::GetFunction()，将C++中相关函数打包成PackedFunc返回
         self._build = self.mod["build"]
         self._optimize = self.mod["optimize"]
         self._set_params_func = self.mod["set_params"]
@@ -112,17 +115,17 @@ class BuildModule(object):
         params : dict
             The parameters of the final graph.
         """
-        target = _update_target(target)
+        target = _update_target(target)         # do nothing
 
         # Setup the params.
         if params:
-            self._set_params(params)
+            self._set_params(params)            # 调用RelayBuildModule::SetParam()函数
         # Build the IR module
-        self._build(mod, target, target_host)
+        self._build(mod, target, target_host)   # 调用RelayBuildModule::Build()函数
         # Get artifacts
-        graph_json = self.get_json()
-        mod = self.get_module()
-        params = self.get_params()
+        graph_json = self.get_json()            # RelayBuildModule::GetGraphJson()
+        mod = self.get_module()                 # RelayBuildModule::GetModule()
+        params = self.get_params()              # RelayBuildModule::GetParam()
 
         return graph_json, mod, params
 
@@ -235,7 +238,8 @@ def build(mod, target=None, target_host=None, params=None, mod_name='default'):
             "instead of deprecated parameter mod (tvm.relay.function.Function)",
             DeprecationWarning)
 
-    target = _update_target(target)
+    target = _update_target(target)         # 将输入的target封装成dict
+                                            # {1: llvm_target}
 
     if isinstance(target_host, (str, _target.Target)):
         target_host = _target.create(target_host)
@@ -250,9 +254,9 @@ def build(mod, target=None, target_host=None, params=None, mod_name='default'):
     else:
         tophub_context = autotvm.util.EmptyContext()
 
-    with tophub_context:
-        bld_mod = BuildModule()
-        graph_json, mod, params = bld_mod.build(mod, target, target_host, params)
+    with tophub_context:            # 不使用autotvm的话，这里啥也不执行
+        bld_mod = BuildModule()     # 构建了一个BuildModule类，并设置了其相关函数
+        graph_json, mod, params = bld_mod.build(mod, target, target_host, params)   
         mod = _graph_runtime_factory.GraphRuntimeFactoryModule(graph_json, mod, mod_name, params)
         return mod
 

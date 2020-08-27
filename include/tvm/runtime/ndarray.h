@@ -47,7 +47,7 @@ class NDArray : public ObjectRef {
   /*! \brief NDArray internal container type */
   class Container;
   /*! \brief Container type for Object system. */
-  using ContainerType = Container;
+  using ContainerType = Container;          // NDArray也是个Ref，其对应的Node是Container
   /*! \brief default constructor */
   NDArray() {}
   /*!
@@ -220,7 +220,7 @@ class NDArray::ContainerBase {
    *  So that this data structure is DLTensor compatible.
    *  The head ptr of this struct can be viewed as DLTensor*.
    */
-  DLTensor dl_tensor;
+  DLTensor dl_tensor;               // 真正的数据部分
 
   /*!
    * \brief additional context, reserved for recycling

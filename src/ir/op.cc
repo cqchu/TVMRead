@@ -41,9 +41,12 @@ using OpRegistry = AttrRegistry<OpRegEntry, Op>;
 
 // find operator by name
 const Op& Op::Get(const String& name) {
-  const OpRegEntry* reg = OpRegistry::Global()->Get(name);
+  const OpRegEntry* reg = OpRegistry::Global()->Get(name);    // 通过AttrRegistry类的static函数global获取Static AttrRegistry的指针
+                                                              // 调用AttrRegistry->Get()函数，找到name所对应的那个OpRegEntry指针
+                                                              // 这些Op都在src/relay/op/底下各个文件中
+                                                              // 通过RELAY_REGISTER_OP/TVM_REGISTER_OP这个宏来注册的
   CHECK(reg != nullptr) << "AttributeError: Operator " << name << " is not registered";
-  return reg->op();
+  return reg->op();                                           // 最后返回OpRegEntry中维护的那个Op类的对象: op_
 }
 
 OpRegEntry::OpRegEntry(uint32_t reg_index) {

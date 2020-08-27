@@ -31,6 +31,7 @@ namespace tvm {
 namespace relay {
 
 //! brief make sure each Var is bound at most once in a scope.
+// 这个类用于辅助判断一个Var是否只出现在一个scope中，若是则认为其是well formed
 class WellFormedChecker : private ExprVisitor, PatternVisitor {
   bool well_formed = true;
 
@@ -124,6 +125,7 @@ class WellFormedChecker : private ExprVisitor, PatternVisitor {
   }
 };
 
+// 如果一个Var只出现在一个scope中，则认为其是well formed
 bool WellFormed(const Expr& e) { return WellFormedChecker().CheckWellFormed(e); }
 
 TVM_REGISTER_GLOBAL("relay.analysis.well_formed").set_body_typed(WellFormed);

@@ -203,8 +203,8 @@ def conv2d(data,
     # TODO enforce 4-way padding in topi/nn/conv2d after #4644 merged
     # convert 2-way padding to 4-way padding
     padding = get_pad_tuple2d(padding)
-    return _make.conv2d(data, weight, strides, padding, dilation,
-                        groups, channels, kernel_size, data_layout,
+    return _make.conv2d(data, weight, strides, padding, dilation,       # TVM_REGISTER_GLOBAL("relay.op.nn._make.conv2d")
+                        groups, channels, kernel_size, data_layout,     # src/relay/op/nn/convolution.cc:91
                         kernel_layout, out_layout, out_dtype)
 
 

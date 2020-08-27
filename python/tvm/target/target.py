@@ -355,4 +355,4 @@ def create(target_str):
     if not isinstance(target_str, str):
         raise ValueError("target_str has to be string type")
 
-    return _ffi_api.TargetFromString(target_str)
+    return _ffi_api.TargetFromString(target_str)    # ./src/target/target.cc:102

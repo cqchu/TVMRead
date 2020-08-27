@@ -303,7 +303,7 @@ class OpRegEntry {
   template <typename, typename>
   friend class AttrRegistry;
   // the name
-  std::string name;
+  std::string name;     // name + op_ 二元组
   /*! \brief The operator */
   Op op_;
   // private constructor

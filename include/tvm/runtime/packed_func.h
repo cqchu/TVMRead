@@ -92,8 +92,8 @@ class PackedFunc {
    *   }
    * \endcode
    */
-  using FType = std::function<void(TVMArgs args, TVMRetValue* rv)>;
-  /*! \brief default constructor */
+  using FType = std::function<void(TVMArgs args, TVMRetValue* rv)>;   // FType是一个C++11的调用类型，此处做了声明
+  /*! \brief default constructor */                                   // 再看一下TVMArgs和TVMRetValue
   PackedFunc() {}
   /*! \brief constructor from null */
   PackedFunc(std::nullptr_t null) {}  // NOLINT(*)
@@ -117,8 +117,8 @@ class PackedFunc {
    * \endcode
    */
   template <typename... Args>
-  inline TVMRetValue operator()(Args&&... args) const;
-  /*!
+  inline TVMRetValue operator()(Args&&... args) const;          // 这里应该是声明了两个调用PackedFunc的接口
+  /*!                                                           // 之后模板实例化时应该各自实现了吧
    * \brief Call the function in packed format.
    * \param args The arguments
    * \param rv The return value.
@@ -133,7 +133,7 @@ class PackedFunc {
 
  private:
   /*! \brief internal container of packed function */
-  FType body_;
+  FType body_;    // PackedFunc其实就是上面定义的这个调用类型FType的实例
 };
 
 /*!
@@ -307,9 +307,9 @@ class TypedPackedFunc<R(Args...)> {
 /*! \brief Arguments into TVM functions. */
 class TVMArgs {
  public:
-  const TVMValue* values;
-  const int* type_codes;
-  int num_args;
+  const TVMValue* values;   // TVMArgs中可以包含若干个TVMValue
+  const int* type_codes;    // 从python中代码来看，这里应该代表传进来TVMValue的种类，比如int, float, NDArray, context, packedfunc等
+  int num_args;             // TVMArgs中包含的参数个数
   /*!
    * \brief constructor
    * \param values The argument values
@@ -446,10 +446,10 @@ class TVMPODValue_ {
   TVMPODValue_(TVMValue value, int type_code) : value_(value), type_code_(type_code) {}
 
   /*! \brief The value */
-  TVMValue value_;
-  /*! \brief the type code */
-  int type_code_;
-};
+  TVMValue value_;                // 只有两个数据成员，TVMValue和type_code
+  /*! \brief the type code */     // 这样看来其实和TVMArgs差不多了，只不过这里只有一个TVMValue而已
+  int type_code_;                 // 看一下PackedFunc(TVMArgs, TVMRetVal*)，返回值本身就是个指针了
+};                                // 所以这里确实也没必要用个TVMValue *
 
 /*!
  * \brief A single argument value to PackedFunc.
@@ -554,8 +554,8 @@ class TVMMovableArgValue_ : public TVMArgValue {
  *  TVMRetValue holds value and will manage the underlying containers
  *  when it stores a complicated data type.
  */
-class TVMRetValue : public TVMPODValue_ {
- public:
+class TVMRetValue : public TVMPODValue_ {     // 这个类中定义了超多的赋值运算符啊
+ public:                                      // TVMRetValue中并没有定义新的数据成员，看下它的父类吧
   /*! \brief default constructor */
   TVMRetValue() {}
   /*!
@@ -569,7 +569,7 @@ class TVMRetValue : public TVMPODValue_ {
   /*! \brief destructor */
   ~TVMRetValue() { this->Clear(); }
   // reuse converter from parent
-  using TVMPODValue_::operator double;
+  using TVMPODValue_::operator double;      // 父类中定义了一系列类型转换操作符
   using TVMPODValue_::operator int64_t;
   using TVMPODValue_::operator uint64_t;
   using TVMPODValue_::operator int;

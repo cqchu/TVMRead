@@ -152,14 +152,14 @@ bool StartsWith(const std::string& str, const std::string& pattern) {
   return str.compare(0, pattern.length(), pattern) == 0;
 }
 
-Target Target::Create(const String& target_str) {
+Target Target::Create(const String& target_str) {       // target_str结构为{target option1 option2 ...}
   std::vector<std::string> splits;
-  std::istringstream is(target_str);
-  for (std::string s; is >> s; splits.push_back(s)) {
+  std::istringstream is(target_str);                    // 对输入的target_str做切分
+  for (std::string s; is >> s; splits.push_back(s)) { 
   }
   CHECK(!splits.empty()) << "ValueError: Cannot parse empty target string: \"" << target_str
                          << "\"";
-  return CreateTarget(splits[0], {splits.begin() + 1, splits.end()});
+  return CreateTarget(splits[0], {splits.begin() + 1, splits.end()});   // 真正构建Target
 }
 
 /*! \brief Entry to hold the Target context stack. */

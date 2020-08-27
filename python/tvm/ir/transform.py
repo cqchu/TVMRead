@@ -89,7 +89,7 @@ class PassContext(tvm.runtime.Object):
                                             required, disabled, trace, config)
 
     def __enter__(self):
-        _ffi_transform_api.EnterPassContext(self)
+        _ffi_transform_api.EnterPassContext(self)   # 盲猜一手这个函数中申明了一个静态的context
         return self
 
     def __exit__(self, ptype, value, trace):

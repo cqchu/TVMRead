@@ -56,8 +56,8 @@ inline ObjectPtr<T> make_object(Args&&... args);
  *
  * \tparam Derived The derived class.
  */
-template <typename Derived>
-class ObjAllocatorBase {
+template <typename Derived>               // 其子类会实例化这个模板，即奇异递归模板模式
+class ObjAllocatorBase {                  // 这个类中也没有数据成员
  public:
   /*!
    * \brief Make a new object using the allocator.
@@ -65,11 +65,14 @@ class ObjAllocatorBase {
    * \tparam Args The constructor signature.
    * \param args The arguments.
    */
-  template <typename T, typename... Args>
+  template <typename T, typename... Args>         // 看看Allocate的具体方式
   inline ObjectPtr<T> make_object(Args&&... args) {
-    using Handler = typename Derived::template Handler<T>;
+    using Handler = typename Derived::template Handler<T>;  // 这个在C++ Primer第593页有讲, 
+                                                            // 使用这种类型成员需要显式的使用typename
+                                                            // 而Handler本身就是个模板类，所以这里用Derived::template
+                                                            // 即这里获取了T的那个Handler类
     static_assert(std::is_base_of<Object, T>::value, "make can only be used to create Object");
-    T* ptr = Handler::New(static_cast<Derived*>(this), std::forward<Args>(args)...);
+    T* ptr = Handler::New(static_cast<Derived*>(this), std::forward<Args>(args)...);  // 调用Handle的New函数，Handler::New<Conv2dAttrs, Args...>
     ptr->type_index_ = T::RuntimeTypeIndex();
     ptr->deleter_ = Handler::Deleter();
     return ObjectPtr<T>(ptr);
@@ -96,15 +99,15 @@ class ObjAllocatorBase {
 };
 
 // Simple allocator that uses new/delete.
-class SimpleObjAllocator : public ObjAllocatorBase<SimpleObjAllocator> {
- public:
-  template <typename T>
-  class Handler {
+class SimpleObjAllocator : public ObjAllocatorBase<SimpleObjAllocator> {    // 有是TVM的骚操作，继承ObjAllocatorBase模板，但这个模板实例化的其实就是自己这个类本身
+ public:                                                                    // 也即所谓的奇异递归模板模式，这样基类中可以使用子类的成员
+  template <typename T>   // 里面定义了两个Handler类，但是并没有任何数据成员    // 可以理解为一种静态多态，在编译实例化时完成了多态
+  class Handler {                                                           // 相比于动态多态需要虚表虚函数的支持，这样子性能会好很多
    public:
-    using StorageType = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+    using StorageType = typename std::aligned_storage<sizeof(T), alignof(T)>::type; // 使用C++的aligned_storage
 
     template <typename... Args>
-    static T* New(SimpleObjAllocator*, Args&&... args) {
+    static T* New(SimpleObjAllocator*, Args&&... args) {                    //Handler::New<Conv2dAttrs, Args...>
       // NOTE: the first argument is not needed for SimpleObjAllocator
       // It is reserved for special allocators that needs to recycle
       // the object to itself (e.g. in the case of object pool).
@@ -118,9 +121,9 @@ class SimpleObjAllocator : public ObjAllocatorBase<SimpleObjAllocator> {
       // class with non-virtual destructor.
       // We are fine here as we captured the right deleter during construction.
       // This is also the right way to get storage type for an object pool.
-      StorageType* data = new StorageType();
-      new (data) T(std::forward<Args>(args)...);
-      return reinterpret_cast<T*>(data);
+      StorageType* data = new StorageType();      // 使用C++的aligned_storage创建Conv2dAttrs的存储空间
+      new (data) T(std::forward<Args>(args)...);  // 用传进来的参数构造这个存储空间，使用的就是new
+      return reinterpret_cast<T*>(data);          // 然后返回这个Conv2dAttrs类型指针
     }
 
     static Object::FDeleter Deleter() { return Deleter_; }
@@ -135,7 +138,7 @@ class SimpleObjAllocator : public ObjAllocatorBase<SimpleObjAllocator> {
       // so that we explicitly call the specific destructor
       // instead of tptr->~T(), which could mean the intention
       // call a virtual destructor(which may not be available and is not required).
-      tptr->T::~T();
+      tptr->T::~T();                              // 显式调用析构函数来delete
       delete reinterpret_cast<StorageType*>(tptr);
     }
   };
@@ -192,8 +195,8 @@ class SimpleObjAllocator : public ObjAllocatorBase<SimpleObjAllocator> {
 };
 
 template <typename T, typename... Args>
-inline ObjectPtr<T> make_object(Args&&... args) {
-  return SimpleObjAllocator().make_object<T>(std::forward<Args>(args)...);
+inline ObjectPtr<T> make_object(Args&&... args) {                           // SimpleObjAllocator继承自ObjAllocatorBase, 是个Allocator对象
+  return SimpleObjAllocator().make_object<T>(std::forward<Args>(args)...);  // 
 }
 
 template <typename ArrayType, typename ElemType, typename... Args>

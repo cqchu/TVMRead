@@ -17,4 +17,4 @@
 """FFI APIs for Relay program IR."""
 import tvm._ffi
 
-tvm._ffi._init_api("relay.ir", __name__)
+tvm._ffi._init_api("relay.ir", __name__)        # 追进去发现并没有显式的Var()函数，那么他必然通过这个_init_api()函数获取了这个函数，再追进去看_init_api("relay.ir", "tvm.relay._ffi_api")
