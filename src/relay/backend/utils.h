@@ -176,7 +176,7 @@ inline relay::Function BindParamsByName(
   }
 
   std::unordered_map<relay::Var, Expr, ObjectPtrHash, ObjectPtrEqual> bind_dict;
-  for (auto& kv : params) {
+  for (auto& kv : params) {                 // 遍历传入进来的params
     if (name_dict.count(kv.first) == 0) {
       continue;
     }
@@ -186,8 +186,8 @@ inline relay::Function BindParamsByName(
     }
     bind_dict[arg] = Constant(kv.second);   // 将这个名字对应权值构造常量，存在bind_dict中
   }
-  Expr bound_expr = relay::Bind(func, bind_dict);                 // 进行真正的bind, bind里面似乎是没有用到上面定义的Constant对象
-  Function ret = Downcast<Function>(bound_expr);
+  Expr bound_expr = relay::Bind(func, bind_dict);                 // 进行真正的bind, bind之后的新func相对于之前的func
+  Function ret = Downcast<Function>(bound_expr);                  // 一些Var被替换成了Constant，只剩下如输入等少部分Var
   CHECK(ret.defined()) << "The returning type is expected to be a Relay Function."
                        << "\n";
   return ret;               // 将bind之后的函数返回回去

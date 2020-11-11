@@ -162,7 +162,7 @@ class TypeVarEVisitor : private ExprVisitor {
 class VarVisitor : protected ExprVisitor, protected PatternVisitor {
  public:
   Array<Var> Free(const Expr& expr) {
-    this->VisitExpr(expr);    // 显然这个函数解析了这个Expr出各个Var到自己的两个数据成员中了
+    this->VisitExpr(expr);    // 这个函数继承自ExprVisitor, 其解析了这个Expr出各个Var到自己的两个数据成员中了
     Array<Var> ret;           // 还没细看完
     for (const auto& v : vars_.data) {
       if (bound_vars_.set.count(v) == 0) {    // 如果不是bound_vars_，就将之

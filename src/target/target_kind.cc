@@ -38,7 +38,7 @@ TVM_STATIC_IR_FUNCTOR(ReprPrinter, vtable)
       p->stream << op->name;
     });
 
-using TargetKindRegistry = AttrRegistry<TargetKindRegEntry, TargetKind>;
+using TargetKindRegistry = AttrRegistry<TargetKindRegEntry, TargetKind>;    // TargetKind的注册器
 
 TargetKindRegEntry& TargetKindRegEntry::RegisterOrGet(const String& target_kind_name) {
   return TargetKindRegistry::Global()->RegisterOrGet(target_kind_name);

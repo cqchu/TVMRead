@@ -52,7 +52,7 @@ template <typename>
 class TargetKindAttrMap;
 
 /*! \brief Target kind, specifies the kind of the target */
-class TargetKindNode : public Object {
+class TargetKindNode : public Object {  // 维护一个注册在系统中的 Target种类
  public:
   /*! \brief Name of the target kind */
   String name;
@@ -111,7 +111,7 @@ class TargetKindNode : public Object {
  * \brief Managed reference class to TargetKindNode
  * \sa TargetKindNode
  */
-class TargetKind : public ObjectRef {
+class TargetKind : public ObjectRef {       // 维护一个注册在系统中的 Target种类
  public:
   TargetKind() = default;
   /*! \brief Get the attribute map given the attribute name */
@@ -160,7 +160,7 @@ static constexpr const char* kTvmRuntimeCrt = "c";
  * \brief Helper structure to register TargetKind
  * \sa TVM_REGISTER_TARGET_KIND
  */
-class TargetKindRegEntry {
+class TargetKindRegEntry {  // 对于TargetKind的封装
  public:
   /*!
    * \brief Register additional attributes to target_kind.

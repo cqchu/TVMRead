@@ -193,13 +193,14 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
     auto pf = GetPackedFunc("relay.backend.GraphPlanMemory");
     storage_device_map_ = (*pf)(func);
     // First we convert all the parameters into input nodes.
+    // std::cout << "Code Generation" << std::endl;
     for (auto param : func->params) {
-      auto node_ptr = GraphInputNode::make_node_ptr(param->name_hint(), GraphAttrs());
+      auto node_ptr = GraphInputNode::make_node_ptr(param->name_hint(), GraphAttrs());  // 将此时的param
       var_map_[param.get()] = AddNode(node_ptr, param);
     }
     heads_ = VisitExpr(func->body);
     std::ostringstream os;
-    dmlc::JSONWriter writer(&os);
+    dmlc::JSONWriter writer(&os);   // 构造一个默认JSONWriter，然后将之与这个os绑定
     GetJSON(&writer);
     LoweredOutput ret;
     ret.graph_json = os.str();
@@ -558,10 +559,10 @@ class GraphRuntimeCodegenModule : public runtime::ModuleNode {
       return PackedFunc([sptr_to_self, this](TVMArgs args, TVMRetValue* rv) {
         CHECK_EQ(args.num_args, 2) << "The expected of arguments are: "
                                    << "runtime::Module mod and Map<int, Target> targets";
-        void* mod = args[0];
-        Map<Integer, tvm::Target> tmp = args[1];
+        void* mod = args[0];                      // 此例中为nullptr
+        Map<Integer, tvm::Target> tmp = args[1];  // TargetsMap, 比如 {1: llvm}
         TargetsMap targets;
-        for (const auto& it : tmp) {
+        for (const auto& it : tmp) {              // 获取输入Targets中有效的那些，然后放在这个新的TargetsMap类型的targets中
           auto dev_type = it.first.as<tir::IntImmNode>();
           CHECK(dev_type);
           targets[dev_type->value] = it.second;
@@ -612,8 +613,8 @@ class GraphRuntimeCodegenModule : public runtime::ModuleNode {
 };
 
 runtime::Module CreateGraphCodegenMod() {
-  auto ptr = make_object<GraphRuntimeCodegenModule>();
-  return runtime::Module(ptr);
+  auto ptr = make_object<GraphRuntimeCodegenModule>();  // 创建了一个默认的GraphRuntimeCodegenModule类
+  return runtime::Module(ptr);                          // 用之构造一个Ref类返回
 }
 
 TVM_REGISTER_GLOBAL("relay.build_module._GraphRuntimeCodegen")

@@ -185,13 +185,14 @@ Expr PostOrderRewrite(const Expr& expr, ExprRewriter* rewriter) {
 }
 
 Expr ExprMutator::VisitExpr(const Expr& expr) {
-  auto it = this->memo_.find(expr);     // 如果这个Expr已经访问过，则退出
-  if (it != this->memo_.end()) {
+  auto it = this->memo_.find(expr);     // ExprMutator::memo_是一个Expr->Expr的Map，
+  if (it != this->memo_.end()) {        
     return it->second;
   } else {
-    Expr new_expr = ExprFunctor::VisitExpr(expr); // 真正的visit
-    memo_[expr] = new_expr;                       // 用memo_记录一下
-    return new_expr;
+    Expr new_expr = ExprFunctor::VisitExpr(expr); // 真正的visit，这个函数会根据传入Expr类型调用ExprBinder::VisitExpr_()或ExprMutator::VisitExpr_()
+                                                  // 在此处expr类型应该是CallNode
+    memo_[expr] = new_expr;                       // 用memo_记录一下，其中memo_的key是原始的op，memo_的val是VisitExpr后的Expr
+    return new_expr;                              // 其会把出现在Params中的Var转为Constant
   }
 }
 
@@ -258,24 +259,24 @@ Expr ExprMutator::VisitExpr_(const FunctionNode* op) {
 }
 
 Expr ExprMutator::VisitExpr_(const CallNode* call_node) {
-  auto new_op = this->Mutate(call_node->op);
+  auto new_op = this->Mutate(call_node->op);        // 首先递归的访问这个CallNode对应的OpNode
   bool unchanged = call_node->op.same_as(new_op);
 
   tvm::Array<Type> ty_args;
-  for (auto ty_arg : call_node->type_args) {
+  for (auto ty_arg : call_node->type_args) {        // 一般没有的
     auto new_ty_arg = this->VisitType(ty_arg);
     ty_args.push_back(new_ty_arg);
     unchanged &= new_ty_arg.same_as(ty_arg);
   }
 
-  tvm::Array<Expr> call_args;
+  tvm::Array<Expr> call_args;                       // 即这个Tensor的输入
   for (auto arg : call_node->args) {
     auto new_arg = this->Mutate(arg);
     call_args.push_back(new_arg);
     unchanged &= new_arg.same_as(arg);
   }
 
-  if (unchanged) {
+  if (unchanged) {                                  // 如果这个Call对应的Op，输入都没变，则直接返回这个Call
     return GetRef<Expr>(call_node);
   } else {
     return Call(new_op, call_args, call_node->attrs, ty_args);
@@ -380,7 +381,7 @@ void ExprVisitor::VisitExpr(const Expr& expr) {
     ++it->second;
   } else {
     using TParent = ExprFunctor<void(const Expr&)>;   // 调用ExprFunctor<void(const Expr&)>::VisitExpr()来对Expr进行处理
-    TParent::VisitExpr(expr);                         // 看看这个函数的内容 ---- //TODO: 没看完
+    TParent::VisitExpr(expr);                         // 看看这个函数的内容
     visit_counter_.insert({expr.get(), 1});           // 将这个Expr存到这个unordered_map中
   }
 }
@@ -511,11 +512,11 @@ class ExprBinder : public ExprMutator, PatternMutator {
     return ExprMutator::VisitExpr_(op);
   }
 
-  Expr VisitExpr_(const VarNode* op) final {
+  Expr VisitExpr_(const VarNode* op) final {    // 这个函数就是Bind的关键
     auto id = GetRef<Var>(op);
-    auto it = args_map_.find(id);
+    auto it = args_map_.find(id);               // 如果Func中这个Var在Params中，则用这个Params对应的那个Constant替换这个Var
     if (it != args_map_.end()) {
-      return (*it).second;
+      return (*it).second;                      // 这样子可以构建出一个新的Func_Body
     } else {
       return std::move(id);
     }
@@ -539,17 +540,20 @@ class ExprBinder : public ExprMutator, PatternMutator {
 
 Expr Bind(const Expr& expr, const tvm::Map<Var, Expr>& args_map) {
   if (const FunctionNode* func = expr.as<FunctionNode>()) {
-    Expr new_body = ExprBinder(args_map).VisitExpr(func->body);   // 构造了一个新的Function body
-    Array<Var> new_params;                                        // 找到在new func body和args_map中都出现的Var
+    // std::cout << "Binding" << std::endl;
+    Expr new_body = ExprBinder(args_map).VisitExpr(func->body);   // 这个函数会递归的遍历这个Func，把上面发现在params中出现的Var替换为Constant
+    Array<Var> new_params;              // 用于存储没有被bind的Var
     for (Var param : func->params) {
-      if (!args_map.count(param)) {
+      if (!args_map.count(param)) {     // 如果一个Var没有被Bind
         new_params.push_back(param);
       }
+      // std::cout << std::endl;
     }
-    if (new_body.same_as(func->body) && new_params.size() == func->params.size()) {   // 说明输入是一个已经bind好的func则返回
+    if (new_body.same_as(func->body) && new_params.size() == func->params.size()) {   // 说明输入是一个已经bind好的func则返回，但此例中显然不是
+      // std::cout << "Not Here" << std::endl;
       return expr;
     }
-    auto ret = Function(new_params, new_body, func->ret_type, func->type_params, func->attrs);  // 用new_params构建Function
+    auto ret = Function(new_params, new_body, func->ret_type, func->type_params, func->attrs);  // 用new_params和new_body构建Function
     std::unordered_set<Var, ObjectPtrHash, ObjectPtrEqual> set;
     for (const auto& v : FreeVars(expr)) {    // 找到前后两个Function中不同的free_var，也加入到new_params
       set.insert(v);

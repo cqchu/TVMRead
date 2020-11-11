@@ -188,11 +188,11 @@ relay::Function RunTypeCheck(const IRModule& mod, const GlobalVar& var, relay::F
   // Type check the item before we add it to the module.              // 再用Downcast将回Function类型
   auto fv = relay::FreeVars(func);
   auto ftv = relay::FreeTypeVars(func, mod);                          // 获取FreeTypeVars, Free type parameters are type parameters that are not bound by a function type in the context.
-  if (fv.size() != 0) {
+  if (fv.size() != 0) {         // 一般均为空
     LOG(WARNING) << "There are free variables: " << fv << " in function: " << AsText(func, false)
                  << std::endl;
   }
-  if (ftv.size() != 0) {
+  if (ftv.size() != 0) {        // 一般均为空
     LOG(WARNING) << "There are free type variables: " << ftv
                  << " in function: " << AsText(func, false) << std::endl;
   }
@@ -206,9 +206,9 @@ relay::Function RunTypeCheck(const IRModule& mod, const GlobalVar& var, relay::F
 void IRModuleNode::Add(const GlobalVar& var, const BaseFunc& f, bool update) {
   BaseFunc checked_func = f;
   if (auto* ptr = f.as<relay::FunctionNode>()) {          // 对传入进来的Function做TypeCheck，这里先获取FunctionNode
-    checked_func = RunTypeCheck(GetRef<IRModule>(this), var, GetRef<relay::Function>(ptr)); // InferType并检测
+    checked_func = RunTypeCheck(GetRef<IRModule>(this), var, GetRef<relay::Function>(ptr)); // InferType并检测，实际来看Infer了shape和type
   }
-
+  
   Type type = checked_func->checked_type();
   CHECK(type.as<relay::IncompleteTypeNode>() == nullptr); // TypeCheck结果检测
 
@@ -338,9 +338,7 @@ IRModule IRModule::FromExpr(const RelayExpr& expr,      // 构造IRModule，并�
   std::string gv_name = "main";
 
   if (auto* func_node = expr.as<BaseFuncNode>()) {  // 如果Expr中的data_已经是一个BaseFuncNode了，则返回Expr的data_指针
-                                                    // 其实也即Expr是一个Function了，这种情况即是run.py的情况
-    func = GetRef<BaseFunc>(func_node);             // 根据BaseFuncNode类型的指针创建BaseFunc对象
-                                                    // 而Function就继承自BaseFunc, FunctionNode就继承自BaseFuncNode
+    func = GetRef<BaseFunc>(func_node);             // 根据BaseFuncNode类型的指针创建BaseFunc对象          
     if (auto opt = func->GetAttr<String>(tvm::attr::kGlobalSymbol)) { // 如果func中已经设置好了GlobalSymbal的话，那么就用设置好的name，否则就用默认的main
       gv_name = opt.value();
     }

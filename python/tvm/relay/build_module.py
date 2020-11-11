@@ -57,12 +57,12 @@ def _update_target(target):
     return tgts
 
 
-def _convert_param_map(params):
+def _convert_param_map(params):                 
     inputs = {}
     for name, param in params.items():
         if isinstance(param, np.ndarray):
-            param = _nd.array(param)
-        inputs[name] = _expr.const(param)
+            param = _nd.array(param)        # numpy的params封装成tvm.nd.array
+        inputs[name] = _expr.const(param)   # 把tvm.nd,array封装成Constant，一个Expr的子类
     return inputs
 
 
@@ -165,7 +165,7 @@ class BuildModule(object):
         return mod, params
 
 
-    def _set_params(self, params):
+    def _set_params(self, params):      # 将params转成一系列Constant，然后送给_set_params_func
         self._set_params_func(_convert_param_map(params))
 
     def get_json(self):
@@ -238,7 +238,7 @@ def build(mod, target=None, target_host=None, params=None, mod_name='default'):
             "instead of deprecated parameter mod (tvm.relay.function.Function)",
             DeprecationWarning)
 
-    target = _update_target(target)         # 将输入的target封装成dict
+    target = _update_target(target)         # 将输入的target封装成dict，反映在C++里就是Target类到TargetsMap
                                             # {1: llvm_target}
 
     if isinstance(target_host, (str, _target.Target)):

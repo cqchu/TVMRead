@@ -52,7 +52,7 @@ class StorageAllocaBaseVisitor : public ExprVisitor {
  public:
   // run the visitor on a function.
   void Run(const Function& func) {
-    for (Var param : func->params) {
+    for (Var param : func->params) {          // 为data这个Var创建StorageToken
       CreateToken(param.operator->(), false);
     }
     // must always keep output alive.
@@ -133,8 +133,10 @@ class StorageAllocaInit : protected StorageAllocaBaseVisitor {
   /*! \return The internal token map */
   std::unordered_map<const ExprNode*, std::vector<StorageToken*> > GetInitTokenMap(
       const Function& func) {
-    node_device_map_ = CollectDeviceInfo(func);
+    node_device_map_ = CollectDeviceInfo(func);   // 收集设备信息，此例中node_device_map_为空
+    // std::cout << "##################" << node_device_map_.size() << std::endl;
     this->Run(func);
+    std::cout << "!!!!!!!!!" << std::endl;
     return std::move(token_map_);
   }
 

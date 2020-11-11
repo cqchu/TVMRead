@@ -36,14 +36,14 @@ using runtime::PackedFunc;
 using runtime::TVMArgs;
 using runtime::TVMRetValue;
 
-Target Target::CreateTarget(const std::string& name, const std::vector<std::string>& options) {
-  TargetKind kind = TargetKind::Get(name);
+Target Target::CreateTarget(const std::string& name, const std::vector<std::string>& options) {   // 根据传入的参数设置kind，此例中就只有个name，设置了一个TargetKind
+  TargetKind kind = TargetKind::Get(name);                      // 根据 name 得到其所属于的那个Kind
   ObjectPtr<TargetNode> target = make_object<TargetNode>();
-  target->kind = kind;
+  target->kind = kind;                                          // Target用于维护此次编译的的Target
   // tag is always empty
   target->tag = "";
   // parse attrs
-  target->attrs = kind->ParseAttrsFromRaw(options);
+  target->attrs = kind->ParseAttrsFromRaw(options);             // 显然是并没有的
   String device_name = target->GetAttr<String>("device", "").value();
   // set up keys
   {
@@ -100,7 +100,7 @@ TVM_REGISTER_GLOBAL("target.TargetCreate").set_body([](TVMArgs args, TVMRetValue
 });
 
 TVM_REGISTER_GLOBAL("target.TargetFromString").set_body([](TVMArgs args, TVMRetValue* ret) {
-  std::string target_str = args[0];
+  std::string target_str = args[0];   // 比如 'llvm'
   *ret = Target::Create(target_str);
 });
 

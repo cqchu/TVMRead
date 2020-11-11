@@ -60,10 +60,10 @@ class Module : public ObjectRef {
    * \note Implemented in packed_func.cc
    */
   inline PackedFunc GetFunction(const std::string& name, bool query_imports = false);   // python中的根据name名获取相关函数的PackedFunc
-  // The following functions requires link with runtime.                                // 这里调用了RelayBuildModule::GetFunction(const std::string&, bool)
-  /*!                                                                                   // 这个函数是继承自ModuleNode::GetFunction(const std::string&, bool)
-   * \brief Import another module into this module.                                     // 这个函数又会调用RelayBuildModule::GetFunction(const std::string, const ObjectPtr<Object>&)
-   * \param other The module to be imported.                                            // 这个函数将RelayBuildModule相关函数打包成PackedFunc返回给python
+  // The following functions requires link with runtime.                                // 这里调用了ModuleNode::GetFunction(const std::string&, bool)
+  /*!                                                                                   // 这个函数又会调用RelayBuildModule::GetFunction(const std::string, const ObjectPtr<Object>&)
+   * \brief Import another module into this module.                                     // 这个函数将RelayBuildModule相关函数打包成PackedFunc返回给python
+   * \param other The module to be imported.                                            
    *
    * \note Cyclic dependency is not allowed among modules,
    *  An error will be thrown when cyclic dependency is detected.

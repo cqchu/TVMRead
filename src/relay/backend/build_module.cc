@@ -58,10 +58,10 @@ struct BuildOutput {
 struct GraphCodegen {
  public:
   GraphCodegen() {
-    auto pf = GetPackedFunc("relay.build_module._GraphRuntimeCodegen");
-    mod = (*pf)();
-  }
-  ~GraphCodegen() {}
+    auto pf = GetPackedFunc("relay.build_module._GraphRuntimeCodegen");   // src/relay/backend/graph_runtime_codegen.cc 620行中这个函数
+    mod = (*pf)();      // 调用这个函数，其内是调用了CreateGraphCodegenMod()函数，其返回了一个Module类(Ref类)
+  }                     // 这个ref类的data_指针指向GraphRuntimeCodegenModule这个Data类
+  ~GraphCodegen() {}    // GraphCodegen::mod指向一个GraphRuntimeCodegenModule的Ref类
 
   void Init(runtime::Module* m, TargetsMap targets) { CallFunc("init", m, targets); }
 
@@ -251,6 +251,9 @@ class RelayBuildModule : public runtime::ModuleNode {
     }
 
     // 添加了超级多的一系列的pass
+    // Function beforeOpt = Downcast<Function>(relay_module->Lookup(relay_module->GetGlobalVar("main")));
+    // std::cout << AsText(beforeOpt, false);
+
     Array<Pass> pass_seqs;
     Array<runtime::String> entry_functions{"main"};
     pass_seqs.push_back(transform::RemoveUnusedFunctions(entry_functions));
@@ -329,6 +332,9 @@ class RelayBuildModule : public runtime::ModuleNode {
     // and vendor-provided libraries. So we don't handle for now.
     relay_module = transform::Inline()(relay_module);
     CHECK(relay_module.defined());
+
+    // Function afterOpt = Downcast<Function>(relay_module->Lookup(relay_module->GetGlobalVar("main")));
+    // std::cout << AsText(afterOpt, false);
 
     return relay_module;            // 最终将一系列pass优化后的IR Module返回回去
   }
@@ -425,6 +431,8 @@ class RelayBuildModule : public runtime::ModuleNode {
     relay_module = Optimize(relay_module, targets_, params);        // 用一系列Pass对Relay进行图优化
     // Get the updated function.
     auto func = Downcast<Function>(relay_module->Lookup("main"));   // 获取此时IRModule中的那个Func
+    // std::cout << AsText(func, false);
+    // std::cout << func << std::endl;
 
     // Generate code for the updated function.
     graph_codegen_ = std::unique_ptr<GraphCodegen>(new GraphCodegen());
@@ -484,7 +492,7 @@ class RelayBuildModule : public runtime::ModuleNode {
  protected:
   std::unique_ptr<GraphCodegen> graph_codegen_;
   /*! \brief target device */
-  TargetsMap targets_;
+  TargetsMap targets_;                                            // using TargetsMap = Map<tvm::Integer, tvm::Target>;
   /*! \brief target host device */
   tvm::Target target_host_;
   /*! \brief parameters */
@@ -494,8 +502,8 @@ class RelayBuildModule : public runtime::ModuleNode {
 };
 
 runtime::Module RelayBuildCreate() {
-  auto exec = make_object<RelayBuildModule>();  // runtime::Module这个ref类对RelayBuildModule这个Node类进行封装，然后返回回去
-  return runtime::Module(exec);                 // RelayBuildModule继承自ModuleNode
+  auto exec = make_object<RelayBuildModule>();  // RelayBuildModule类是ModuleNode的子类，Module是ModuleNode类的ref类
+  return runtime::Module(exec);                 // 用Module类对RelayBuildModule这个Node类进行封装，然后返回回去
 }                                               // 这个构造过程平平无奇
 
 TVM_REGISTER_GLOBAL("relay.build_module._BuildModule").set_body([](TVMArgs args, TVMRetValue* rv) {
