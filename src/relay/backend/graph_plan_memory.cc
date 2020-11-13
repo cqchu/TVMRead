@@ -52,13 +52,22 @@ class StorageAllocaBaseVisitor : public ExprVisitor {
  public:
   // run the visitor on a function.
   void Run(const Function& func) {
-    for (Var param : func->params) {          // 为data这个Var创建StorageToken
+    for (Var param : func->params) {                  // 为data这个Var创建StorageToken
+      // std::cout << "##############" << std::endl;
       CreateToken(param.operator->(), false);
+      // std::cout << "**************" << std::endl;
     }
+
     // must always keep output alive.
-    for (StorageToken* tok : GetToken(func->body)) {
-      tok->ref_counter += 1;
+    // std::cout << "##############" << std::endl;
+    // std::cout << func->body->GetTypeKey() << std::endl;
+    for (StorageToken* tok : GetToken(func->body)) {  // 此函数会间接递归整个网络，为网络中所有节点分配StorageToken
+      tok->ref_counter += 1;                          // 确保输出不能被release
     }
+    // for (auto kv: token_map_) {
+    //   std::cout << kv.first->GetTypeKey() << ", " << kv.second[0]->ref_counter << std::endl;
+    // }
+    // // std::cout << "**************" << std::endl;
   }
 
   void VisitExpr_(const ConstantNode* op) final { this->CreateToken(op, false); }
@@ -113,7 +122,8 @@ class StorageAllocaBaseVisitor : public ExprVisitor {
    * \return The corresponding token.
    */
   const std::vector<StorageToken*>& GetToken(const Expr& expr) {
-    this->VisitExpr(expr);
+    this->VisitExpr(expr);          // 递归整个网络，为网络中其他节点分配Token，这里this指针指向的是一个StorageAllocaInit类对象
+    // std::cout << expr.operator->()->GetTypeKey() << std::endl;
     auto it = token_map_.find(expr.operator->());
     CHECK(it != token_map_.end());
     return it->second;
@@ -136,21 +146,22 @@ class StorageAllocaInit : protected StorageAllocaBaseVisitor {
     node_device_map_ = CollectDeviceInfo(func);   // 收集设备信息，此例中node_device_map_为空
     // std::cout << "##################" << node_device_map_.size() << std::endl;
     this->Run(func);
-    std::cout << "!!!!!!!!!" << std::endl;
+    // std::cout << "!!!!!!!!!" << std::endl;
     return std::move(token_map_);
   }
 
  protected:
   using StorageAllocaBaseVisitor::VisitExpr_;
 
-  void CreateToken(const ExprNode* op, bool can_realloc) final {
-    CHECK(!token_map_.count(op));
+  void CreateToken(const ExprNode* op, bool can_realloc) final {    // 用于为一个Expr创建StorageToken
+    CHECK(!token_map_.count(op));                                   // 如果这个Expr之前未创建StorageToken
     std::vector<StorageToken*> tokens;
-    int device_type =
+    int device_type =                                               // 此例中均为0，即默认的CPU Device
         node_device_map_.count(GetRef<Expr>(op)) ? node_device_map_[GetRef<Expr>(op)]->value : 0;
-    if (const auto* tuple_type = op->checked_type().as<TupleTypeNode>()) {
-      for (Type t : tuple_type->fields) {
-        const auto* ttype = t.as<TensorTypeNode>();
+    // std::cout << device_type << std::endl;
+    if (const auto* tuple_type = op->checked_type().as<TupleTypeNode>()) {  // 是VarNode而非TupleTypeNode，不走此分支
+      for (Type t : tuple_type->fields) {                                   // 猜测TupleNode是那种可能有多个输出的op/call
+        const auto* ttype = t.as<TensorTypeNode>();                         // 这样要为每个输出构建一个StorageToken
         CHECK(ttype);
         StorageToken* token = arena_->make<StorageToken>();
         token->ttype = ttype;
@@ -158,22 +169,22 @@ class StorageAllocaInit : protected StorageAllocaBaseVisitor {
         tokens.push_back(token);
       }
     } else {
-      const auto* ttype = op->checked_type().as<TensorTypeNode>();
+      const auto* ttype = op->checked_type().as<TensorTypeNode>();    // VarNode的Type为TensorTypeNode，由前面的CheckType()函数Infer得到
       CHECK(ttype);
-      StorageToken* token = arena_->make<StorageToken>();
-      token->ttype = ttype;
+      StorageToken* token = arena_->make<StorageToken>();   // 用默认参数创建一个StorageToken
+      token->ttype = ttype;                                 // 设置这个Token的参数
       token->device_type = device_type;
       tokens.push_back(token);
     }
     token_map_[op] = tokens;
   }
 
-  void VisitExpr_(const CallNode* op) final {
+  void VisitExpr_(const CallNode* op) final {         
     // create token for the call node.
-    CreateToken(op, true);
+    CreateToken(op, true);                                  // 为这个CallNode创建StorageToken
     // for each input, visit argument token.
     for (Expr arg : op->args) {
-      for (StorageToken* tok : GetToken(arg)) {
+      for (StorageToken* tok : GetToken(arg)) {             // 这个CallNode的每个输入的RefCount都+1
         tok->ref_counter += 1;
       }
     }
@@ -200,12 +211,12 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
 
   // Run storage allocation for a function.
   Map<Expr, Array<IntegerArray> > Plan(const Function& func) {
-    prototype_ = StorageAllocaInit(&arena_).GetInitTokenMap(func);
-    this->Run(func);
+    prototype_ = StorageAllocaInit(&arena_).GetInitTokenMap(func);      // 遍历整个网络，获得一个初始的Expr->StorageToken的Map，存在Prototype_
+    this->Run(func);                                                    // 遍历整个网络，更新了这个Map->StorageToken的Map，存在token_map_中
 
     // The value of smap contains two integer arrays where the first array
     // contains the planned storage ids and the second holds the device types.
-    Map<Expr, Array<IntegerArray> > smap;
+    Map<Expr, Array<IntegerArray> > smap;                               
     int num_annotated_nodes = 0;
     int num_nodes = 0;
 
@@ -214,6 +225,7 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
       std::vector<Integer> device_types;
       for (StorageToken* tok : kv.second) {
         if (tok->device_type) {
+          // std::cout << "!!!!!!!!" << std::endl;
           num_annotated_nodes++;
         }
         num_nodes++;
@@ -235,15 +247,16 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
   using StorageAllocaBaseVisitor::VisitExpr_;
   // override create token by getting token as prototype requirements.
   void CreateToken(const ExprNode* op, bool can_realloc) final {
+    // std::cout << "Superise !!!" << std::endl;
     CHECK(!token_map_.count(op));
     auto it = prototype_.find(op);
     CHECK(it != prototype_.end());
     std::vector<StorageToken*> tokens;
-    for (StorageToken* tok : it->second) {
+    for (StorageToken* tok : it->second) {    // 从StorageAllocaInit的结果中找到这个初始的StorageToken  
       if (can_realloc) {
         tokens.push_back(Request(tok));
       } else {
-        // Allocate a new token,
+        // Allocate a new token,              // 对这个StorageToken做进一步处理，别看这里有这么多指针，其实都是指向最开始这个InitStorageToken
         StorageToken* allocated_tok = Alloc(tok, GetMemorySize(tok));
         allocated_tok->device_type = tok->device_type;
         // ensure it never get de-allocated.
@@ -251,7 +264,7 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
         tokens.push_back(allocated_tok);
       }
     }
-    token_map_[op] = tokens;
+    token_map_[op] = tokens;                // 将最终的这个Token存在StorageAllocator类的token_map_中
   }
   // The call map
   void VisitExpr_(const CallNode* op) final {
@@ -266,9 +279,9 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
     CreateToken(op, true);
     // check if there is orphaned output that can be released immediately.
     for (StorageToken* tok : token_map_.at(op)) {
-      CheckForRelease(tok);
+      CheckForRelease(tok);             // 如果这个Call是个中间结果，则将之置为可以Release的，用free_来维护
     }
-    for (StorageToken* tok : args) {
+    for (StorageToken* tok : args) {    // 对Call的每个输入参数也这么做
       tok->ref_counter -= 1;
       CheckForRelease(tok);
     }
@@ -286,7 +299,7 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
    * \param prototype The prototype token.
    * \return The required memory size.
    */
-  size_t GetMemorySize(StorageToken* prototype) {
+  size_t GetMemorySize(StorageToken* prototype) {   // 获取一个Token对应的一个Memory Size，其实就是TensorType的shape相乘再对齐
     const TensorTypeNode* ttype = prototype->ttype;
     CHECK(ttype != nullptr);
     size_t size = 1;

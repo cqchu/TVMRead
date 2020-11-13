@@ -191,14 +191,17 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
 
   LoweredOutput Codegen(relay::Function func) {
     auto pf = GetPackedFunc("relay.backend.GraphPlanMemory");
-    storage_device_map_ = (*pf)(func);
+    storage_device_map_ = (*pf)(func);                            // Expr -> <StorageID, DeviceType>的映射
     // First we convert all the parameters into input nodes.
-    // std::cout << "Code Generation" << std::endl;
+    std::cout << "Code Generation" << std::endl;
     for (auto param : func->params) {
-      auto node_ptr = GraphInputNode::make_node_ptr(param->name_hint(), GraphAttrs());  // 将此时的param
-      var_map_[param.get()] = AddNode(node_ptr, param);
+      auto node_ptr = GraphInputNode::make_node_ptr(param->name_hint(), GraphAttrs());  // 用此时输入的那个Var构造一个GraphNode
+      var_map_[param.get()] = AddNode(node_ptr, param);                                 // 把这个GraphNode插入Graph中，此时Graph中的Node都是这些输入的Node
     }
-    heads_ = VisitExpr(func->body);
+    // std::cout << AsText(func, false);
+    // std::cout << func->body->GetTypeKey() << std::endl;
+    heads_ = VisitExpr(func->body); // 真正的开始去low
+    // std::cout << AsText(func, false);
     std::ostringstream os;
     dmlc::JSONWriter writer(&os);   // 构造一个默认JSONWriter，然后将之与这个os绑定
     GetJSON(&writer);
@@ -241,18 +244,18 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
    * \param expr
    * \return std::vector<_NodeRef>
    */
-  std::vector<GraphNodeRef> AddNode(GraphObjectPtr node, Expr expr) {
+  std::vector<GraphNodeRef> AddNode(GraphObjectPtr node, Expr expr) { // 由一个Expr构建一个GraphNode，存入node_数组中，同时返回这个node的Ref
     auto checked_type = expr->checked_type();
     size_t count = storage_device_map_.count(expr);
     CHECK_GT(count, 0) << "Expr is not existing in storage plan";
     auto storage_device_info = storage_device_map_[expr];
-    CHECK_EQ(storage_device_info.size(), 2);
+    CHECK_EQ(storage_device_info.size(), 2);      // 获取这个Expr的 StorageID 和 DeviceID
     // storage
     std::vector<int64_t> storage_info;
     for (auto& v : storage_device_info[0]) {
       storage_info.push_back(v->value);
     }
-    node->attrs_["storage_id"] = std::move(storage_info);
+    node->attrs_["storage_id"] = std::move(storage_info);       // 用Expr的StorageToken设置其对应node的信息
     // type
     std::vector<int64_t> device_types;
     for (auto& v : storage_device_info[1]) {
@@ -265,12 +268,12 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
                  << "annotated.";
     }
     if (num_unknown_devices == 0) {
-      node->attrs_["device_index"] = device_types;
+      node->attrs_["device_index"] = device_types;              // 用Expr的StorageToken设置其对应node的信息
     }
     auto node_id = nodes_.size();
     nodes_.push_back(node);
     // Tuple return value, flatten as tuple
-    if (const auto* tuple_type = checked_type.as<TupleTypeNode>()) {
+    if (const auto* tuple_type = checked_type.as<TupleTypeNode>()) {    // 此例中未执行
       std::vector<GraphNodeRef> ret;
       ShapeVector shape;
       std::vector<std::string> dtype;
@@ -296,8 +299,8 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
       std::vector<std::string> dtype;
       shape.emplace_back(_ShapeToJSON(tensor_type->shape));
       dtype.emplace_back(DType2String(tensor_type->dtype));
-      node->attrs_["shape"] = shape;
-      node->attrs_["dtype"] = dtype;
+      node->attrs_["shape"] = shape;                    // 用Expr的StorageToken设置其对应node的信息
+      node->attrs_["dtype"] = dtype;                    // 用Expr的StorageToken设置其对应node的信息
     } else {
       LOG(FATAL) << "type " << checked_type->GetTypeKey() << " not supported";
     }
@@ -350,8 +353,8 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
                  << "the fuse_ops transformation to the expression.";
     } else if (op->op.as<GlobalVarNode>()) {
       LOG(FATAL) << "Not implemented";
-    } else if (op->op.as<FunctionNode>()) {
-      func = GetRef<Function>(op->op.as<FunctionNode>());
+    } else if (op->op.as<FunctionNode>()) {                 // 经过GraphOptimization后，原来图中Call中的那些原始OP都被转成了Function
+      func = GetRef<Function>(op->op.as<FunctionNode>());   // 这也是这种数据结构为什么被命名为Call的原因
     } else {
       LOG(FATAL) << "TVM runtime does not support calls to " << op->op->GetTypeKey();
     }
@@ -360,11 +363,13 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
                  << "(i.e functions composed of fusable operator invocations)";
     }
 
-    auto pf0 = GetPackedFunc("relay.backend._make_CCacheKey");
-    auto pf1 = GetPackedFunc("relay.backend._CompileEngineLower");
+    // 上面获取了这个Call对应的那个Function
+
+    auto pf0 = GetPackedFunc("relay.backend._make_CCacheKey");      // CCacheKey的构造函数，返回一个CCacheKey对象
+    auto pf1 = GetPackedFunc("relay.backend._CompileEngineLower");  // CompileEngine::Lower()函数
     Target target;
     // Handle external function
-    if (func->GetAttr<String>(attr::kCompiler).defined()) {
+    if (func->GetAttr<String>(attr::kCompiler).defined()) {                         // No external function，先不看
       target = tvm::target::ext_dev();
       CCacheKey key = (*pf0)(func, target);
       CachedFunc ext_func = (*pf1)(compile_engine_, key);
@@ -384,7 +389,7 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
     auto& device_type = storage_device_map_[expr][1];
     auto call_dev_type = device_type[0]->value;
     // Normal Relay Function
-    if (targets_.size() == 1) {
+    if (targets_.size() == 1) {             // 同构编译
       // homogeneous execution.
       const auto& it = targets_.begin();
       target = (*it).second;
@@ -401,6 +406,7 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
       }
       target = targets_[call_dev_type];
     }
+    // 到此获取了这个Call中的那个函数，以及对应的编译的target
     CCacheKey key = (*pf0)(func, target);
     CachedFunc lowered_func = (*pf1)(compile_engine_, key);
     if (!lowered_funcs_.count(target->str())) {

@@ -82,11 +82,11 @@ class MemoizedExprTranslator : public ::tvm::relay::ExprFunctor<OutputType(const
    */
   virtual OutputType VisitExpr(const Expr& n) {
     CHECK(n.defined());
-    auto it = memo_.find(n);
+    auto it = memo_.find(n);                // 如果这个Node处理过，则直接读取其输出
     if (it != memo_.end()) {
       return it->second;
     }
-    auto res = BaseFunctor::VisitExpr(n);
+    auto res = BaseFunctor::VisitExpr(n);   // 否则真正的去visit
     memo_[n] = res;
     return res;
   }
