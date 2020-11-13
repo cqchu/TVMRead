@@ -644,18 +644,18 @@ class CompileEngineImpl : public CompileEngineNode {
     std::lock_guard<std::mutex> lock(mutex_);
     CCacheValue value;
     auto it = cache_.find(key);
-    if (it != cache_.end()) {
+    if (it != cache_.end()) {         // 如果这个CCacheKey对应的那个SubFunc被处理过
       it->second->use_count += 1;
       if (it->second->cached_func.defined()) return it->second;
       value = it->second;
-    } else {
+    } else {                          // 这个CCacheKey对应的SubFunc未被处理过，则先创建一个空的CCacheValue
       value = CCacheValue(make_object<CCacheValueNode>());
       value->use_count = 0;
       cache_[key] = value;
     }
     // No need to lower external functions for now. We will invoke the external
     // codegen tool once and lower all functions together.
-    if (key->source_func->GetAttr<String>(attr::kCompiler).defined()) {
+    if (key->source_func->GetAttr<String>(attr::kCompiler).defined()) {   // 用于处理external的分支，此时暂时不管
       auto cache_node = make_object<CachedFuncNode>();
       const auto name_node = key->source_func->GetAttr<String>(tvm::attr::kGlobalSymbol);
       CHECK(name_node.defined()) << "External function has not been attached a name yet.";
@@ -666,7 +666,7 @@ class CompileEngineImpl : public CompileEngineNode {
       return value;
     }
     // Enforce use the target.
-    With<Target> target_scope(key->target);
+    With<Target> target_scope(key->target);           // 调用了Target::EnterWithScope()
 
     CHECK(!value->cached_func.defined());
     auto cfunc = CreateSchedule(key->source_func, key->target);

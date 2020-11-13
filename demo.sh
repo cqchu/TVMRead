@@ -1,4 +1,4 @@
 cd build/
-make -j8
+make -j4
 cd ..
 python tests/run.py

@@ -94,7 +94,7 @@ set(SGX_MODE "SIM")
 set(RUST_SGX_SDK "/path/to/rust-sgx-sdk")
 
 # Whether enable RPC runtime
-set(USE_RPC OFF)
+set(USE_RPC ON)
 
 # Whether embed stackvm into the runtime
 set(USE_STACKVM_RUNTIME OFF)
@@ -118,7 +118,7 @@ set(USE_MICRO_STANDALONE_RUNTIME OFF)
 # - ON: enable llvm with cmake's find search
 # - OFF: disable llvm
 # - /path/to/llvm-config: enable specific LLVM when multiple llvm-dev is available.
-set(USE_LLVM ON)
+set(USE_LLVM OFF)
 
 #---------------------------------------------
 # Contrib libraries
@@ -179,7 +179,7 @@ set(USE_MPS OFF)
 set(USE_ROCBLAS OFF)
 
 # Whether use contrib sort
-set(USE_SORT OFF)
+set(USE_SORT ON)
 
 # Whether use MKL-DNN (DNNL) codegen
 set(USE_DNNL_CODEGEN OFF)
@@ -234,5 +234,5 @@ set(USE_HEXAGON_SDK /path/to/sdk)
 set(USE_TARGET_ONNX OFF)
 
 # Whether to compile the standalone C runtime.
-set(USE_STANDALONE_CRT OFF)
+set(USE_STANDALONE_CRT ON)
 
