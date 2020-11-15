@@ -179,17 +179,17 @@ def select_implementation(op, attrs, inputs, out_type, target, use_autotvm=True)
     ret : tuple(relay.op.OpImplementation, List[tvm.te.Tensor])
         The best op implementation and the corresponding output tensors.
     """
-    all_impls = get_valid_implementations(op, attrs, inputs, out_type, target)
+    all_impls = get_valid_implementations(op, attrs, inputs, out_type, target)      # 找到这个Op所有的Implement
 
     best_plevel_impl = None
-    for impl in all_impls:
+    for impl in all_impls:                                                          # 找到一种预定义的最优Implement   
         if best_plevel_impl is None or impl.plevel > best_plevel_impl.plevel:
             best_plevel_impl = impl
-    if not use_autotvm:
+    if not use_autotvm:                                                             # 如果不用Auto TVM，则直接将之返回
         outs = best_plevel_impl.compute(attrs, inputs, out_type)
         return best_plevel_impl, outs
 
-    outputs = {}
+    outputs = {}                    # auto TVM相关的
     workloads = {}
     best_autotvm_impl = None
     best_cfg = None
@@ -225,7 +225,7 @@ def select_implementation(op, attrs, inputs, out_type, target, use_autotvm=True)
     return best_plevel_impl, outputs[best_plevel_impl]
 
 
-@tvm._ffi.register_func("relay.backend.lower_call")
+@tvm._ffi.register_func("relay.backend.lower_call")     # 真正的lower一个op
 def lower_call(call, inputs, target):
     """Lower the call expression to op implementation and tensor outputs."""
     assert isinstance(call.op, tvm.ir.Op)
@@ -236,7 +236,7 @@ def lower_call(call, inputs, target):
     # TODO(@icemelon9): Support recursive tuple
     ret_type = call.checked_type
     if isinstance(ret_type, _ty.TensorType):
-        ret_type = _ty.TensorType(get_shape(ret_type.shape), ret_type.dtype)
+        ret_type = _ty.TensorType(get_shape(ret_type.shape), ret_type.dtype)    
     elif isinstance(ret_type, _ty.TupleType):
         new_fields = []
         for field in ret_type.fields:
@@ -259,11 +259,11 @@ def lower_call(call, inputs, target):
             reenable_tracing = True
 
     if not is_dyn:
-        best_impl, outputs = select_implementation(
+        best_impl, outputs = select_implementation(         # 获取了一系列Lower需要的信息，lower
             op, call.attrs, inputs, ret_type, target)
         logger.info("Use implementation %s for op %s", best_impl.name, op.name)
     else:
-        # TODO(@icemelon9): Allow tvm to generate multiple kernels for dynamic shapes.
+        # TODO(@icemelon9): Allow tvm to generate multiple kernels for dynamic shapes.          # dynamic shape，暂时不管
         #   Currently, we just use the implementation with highest plevel
         best_impl, outputs = select_implementation(
             op, call.attrs, inputs, ret_type, target, use_autotvm=False)
@@ -271,7 +271,7 @@ def lower_call(call, inputs, target):
     # re-enable AutoTVM tracing
     if reenable_tracing:
         env.tracing = True
-    return LoweredOutput(outputs, best_impl)
+    return LoweredOutput(outputs, best_impl)                # 将lower的结果，op_implementation和
 
 
 @tvm._ffi.register_object("relay.CompileEngine")

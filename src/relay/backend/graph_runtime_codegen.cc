@@ -193,7 +193,9 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
     auto pf = GetPackedFunc("relay.backend.GraphPlanMemory");
     storage_device_map_ = (*pf)(func);                            // Expr -> <StorageID, DeviceType>的映射
     // First we convert all the parameters into input nodes.
-    std::cout << "Code Generation" << std::endl;
+    std::cout << "***********************************************************************************" << std::endl;
+    std::cout << "********************************* Code Generation *********************************" << std::endl;
+    std::cout << "***********************************************************************************" << std::endl;
     for (auto param : func->params) {
       auto node_ptr = GraphInputNode::make_node_ptr(param->name_hint(), GraphAttrs());  // 用此时输入的那个Var构造一个GraphNode
       var_map_[param.get()] = AddNode(node_ptr, param);                                 // 把这个GraphNode插入Graph中，此时Graph中的Node都是这些输入的Node
@@ -353,7 +355,7 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
                  << "the fuse_ops transformation to the expression.";
     } else if (op->op.as<GlobalVarNode>()) {
       LOG(FATAL) << "Not implemented";
-    } else if (op->op.as<FunctionNode>()) {                 // 经过GraphOptimization后，原来图中Call中的那些原始OP都被转成了Function
+    } else if (op->op.as<FunctionNode>()) {                 // 经过OP Fusion后，原来图中Call中的那些原始OP都被fuse转成了Function
       func = GetRef<Function>(op->op.as<FunctionNode>());   // 这也是这种数据结构为什么被命名为Call的原因
     } else {
       LOG(FATAL) << "TVM runtime does not support calls to " << op->op->GetTypeKey();
@@ -363,7 +365,10 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
                  << "(i.e functions composed of fusable operator invocations)";
     }
 
-    // 上面获取了这个Call对应的那个Function
+    // 上面获取了这个Call对应的那个SubFunction (OpFusion后的子图)
+    // std::cout << "###################" << std::endl;
+    // std::cout << AsText(func, false) << std::endl;
+    // std::cout << "*******************" << std::endl;
 
     auto pf0 = GetPackedFunc("relay.backend._make_CCacheKey");      // CCacheKey的构造函数，返回一个CCacheKey对象
     auto pf1 = GetPackedFunc("relay.backend._CompileEngineLower");  // CompileEngine::Lower()函数

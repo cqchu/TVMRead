@@ -95,17 +95,21 @@ Array<IndexExpr> GetShape(const Array<IndexExpr>& shape) {
 class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>> {
  public:
   explicit ScheduleGetter(Target target)
-      : target_(target), device_copy_op_(Op::Get("device_copy")) {}
+      : target_(target), device_copy_op_(Op::Get("device_copy")) {}     // device_copy_op_设为系统中名为device_copy的op
 
   CachedFunc Create(const Function& prim_func) {
-    auto cache_node = make_object<CachedFuncNode>();
+    auto cache_node = make_object<CachedFuncNode>();      // 创建一个默认的CachedFuncNode
     cache_node->target = target_;
-    for (Var param : prim_func->params) {
+    // std::cout << "###################" << std::endl;
+    // std::cout << AsText(prim_func, false) << std::endl;
+    // std::cout << "*******************" << std::endl;
+    for (Var param : prim_func->params) {                 // 对于这个SubFunc中的每个输入
+      // std::cout << param->name_hint() << std::endl;
       Array<tvm::te::Tensor> inputs;
       if (const auto* ttype = param->checked_type().as<TensorTypeNode>()) {
-        tvm::te::Tensor tensor = tvm::te::placeholder(GetShape(ttype->shape), ttype->dtype);
-        cache_node->inputs.push_back(tensor);
-        inputs.push_back(tensor);
+        tvm::te::Tensor tensor = tvm::te::placeholder(GetShape(ttype->shape), ttype->dtype);    // 为这个输入创建一个Tensor类型的PlaceHolder
+        cache_node->inputs.push_back(tensor);                                                   // 把这个Tensor类型的输入放入CachedFuncNode::inputs中
+        inputs.push_back(tensor);                                                               // 这个HIR中的Var类型的Func的输入被转成LIR中的Tensor类型的PlaceHolder
       } else {
         // flatten tuple of tensor type.
         const auto* tuple_type = param->type_as<TupleTypeNode>();
@@ -118,10 +122,10 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
           inputs.push_back(tensor);
         }
       }
-      memo_[param] = inputs;
-    }
+      memo_[param] = inputs;                                  // param这个ExprLower的结果是LIR中PlaceHolder，存入MemorizedExprTranslator::memo_中            
+    }                                                         // 避免后续再lower，这个Node时重新Lower，之后查表这个memo_就行
     readable_name_stream_ << "fused";
-    cache_node->outputs = this->VisitExpr(prim_func->body);
+    cache_node->outputs = this->VisitExpr(prim_func->body);   // 调用这个ScheduleGetter::VisitExpr_()递归处理这个subfunc中的内容，处理的结果是这个subfunc的输出
     auto candidate_name = readable_name_stream_.str();
     constexpr static size_t kMaxFuncNameLength = 80;
     if (candidate_name.size() > kMaxFuncNameLength) {
@@ -190,18 +194,19 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
     return {value};
   }
 
-  Array<te::Tensor> VisitExpr_(const CallNode* call_node) final {
+  Array<te::Tensor> VisitExpr_(const CallNode* call_node) final {                       // lower一个subfunction中的Call
     static auto fpattern = Op::GetAttrMap<TOpPattern>("TOpPattern");
-    static auto flower_call = tvm::runtime::Registry::Get("relay.backend.lower_call");
+    static auto flower_call = tvm::runtime::Registry::Get("relay.backend.lower_call");  // python/tvm/relay/backend/compile_engine.py 228行
     CHECK(flower_call) << "relay.backend.lower_call is not registered.";
 
     Array<te::Tensor> inputs;
     int count_tuple = 0;
-    for (Expr arg : call_node->args) {
+    for (Expr arg : call_node->args) {                  // 对于这个CallNode的每个输入
+      // std::cout << arg->GetTypeKey() << std::endl;
       if (arg->checked_type().as<TupleTypeNode>()) {
         ++count_tuple;
       }
-      for (te::Tensor tensor : VisitExpr(arg)) {
+      for (te::Tensor tensor : VisitExpr(arg)) {        // 递归处理这个CallNode的每个输入
         inputs.push_back(tensor);
       }
     }
@@ -210,17 +215,20 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
     }
 
     CHECK(call_node->op.as<OpNode>()) << "Primitive function only allows call into primitive ops";
-    Op op = Downcast<Op>(call_node->op);
+    Op op = Downcast<Op>(call_node->op);                // 开始处理这个Call对应的那个Op
+
+    std::cout << op->name << std::endl;
 
     Array<te::Tensor> outputs;
     OpImplementation impl;
     // Skip fcompute for device copy operators as it is not registered.
-    if (op == device_copy_op_) {
+    if (op == device_copy_op_) {                        // 一般走不到这里
+      // std::cout << "Not this one" << std::endl;
       const auto* copy_input = inputs[0].operator->();
       outputs.push_back(te::Tensor(copy_input->shape, copy_input->dtype, te::Operation(), 0));
-    } else {
+    } else {                                            // 真正的去lower这个具体的op
       LoweredOutput lowered_out = (*flower_call)(GetRef<Call>(call_node), inputs, target_);
-      outputs = lowered_out->outputs;
+      outputs = lowered_out->outputs;                   // 导出lower的相关结果
       impl = lowered_out->implementation;
     }
 
@@ -230,7 +238,7 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
           << "Two complicated op in a primitive function "
           << " master=" << master_op_ << " current=" << op;
     }
-    if (op_pattern >= master_op_pattern_) {
+    if (op_pattern >= master_op_pattern_) {             // 每个subfunc对应多个Call/Op，这是维护那个Master Op，具体参考TVM layer fusion的思想
       master_op_ = op;
       master_attrs_ = call_node->attrs;
       master_op_pattern_ = op_pattern;
@@ -249,7 +257,7 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
     } else {
       readable_name_stream_ << '_' << op->name;
     }
-    return outputs;
+    return outputs;                                   // 返回这个
   }
 
   Array<te::Tensor> VisitExpr_(const FunctionNode* op) final {
@@ -635,7 +643,7 @@ class CompileEngineImpl : public CompileEngineNode {
    *  The funcs field in cache is not yet populated.
    */
   CachedFunc CreateSchedule(const Function& source_func, const Target& target) {
-    return ScheduleGetter(target).Create(source_func);
+    return ScheduleGetter(target).Create(source_func);    // 根据target构造一个ScheduleGetter
   }
 
  private:
@@ -666,10 +674,13 @@ class CompileEngineImpl : public CompileEngineNode {
       return value;
     }
     // Enforce use the target.
-    With<Target> target_scope(key->target);           // 调用了Target::EnterWithScope()
+    With<Target> target_scope(key->target);                       // 调用了Target::EnterWithScope()，将当前的target放入系统中那个维护target的栈顶
 
     CHECK(!value->cached_func.defined());
-    auto cfunc = CreateSchedule(key->source_func, key->target);
+    // std::cout << "#################################################" << std::endl;
+    // std::cout << "#################################################" << std::endl;
+    // std::cout << "#################################################" << std::endl;
+    auto cfunc = CreateSchedule(key->source_func, key->target);   // 根据这个CCacheKey创建Schedule
     auto cache_node = make_object<CachedFuncNode>(*(cfunc.operator->()));
 
     // Skip lowering for device copy node.
