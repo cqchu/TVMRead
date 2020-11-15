@@ -89,8 +89,9 @@ reg.register_pattern("nn.conv1d", OpPattern.OUT_ELEMWISE_FUSABLE)
 
 
 # conv2d
-reg.register_strategy("nn.conv2d", strategy.conv2d_strategy)
-reg.register_pattern("nn.conv2d", OpPattern.OUT_ELEMWISE_FUSABLE)
+reg.register_strategy("nn.conv2d", strategy.conv2d_strategy)        # 注册Conv2d的Strategy，register_strategy()这个函数会为nn.conv2d这
+                                                                    # 个算子添加一个叫FStrategy的属性，看看这个conv2d_strategy函数
+reg.register_pattern("nn.conv2d", OpPattern.OUT_ELEMWISE_FUSABLE)   # 注册Conv2d的pattern
 
 @reg.register_alter_op_layout("nn.conv2d")
 def alter_op_layout_conv2d(attrs, inputs, tinfos, out_type):

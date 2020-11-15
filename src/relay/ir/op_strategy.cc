@@ -54,9 +54,9 @@ void OpSpecialization::AddImplementation(tvm::relay::FTVMCompute fcompute,
 
 void OpStrategy::AddImplementation(FTVMCompute fcompute, FTVMSchedule fschedule, String name,
                                    int plevel) {
-  auto curr_cond = te::SpecializedCondition::Current();
+  auto curr_cond = te::SpecializedCondition::Current();             // 获取一下当前的SpecializedCondition
   auto self = this->operator->();
-  Array<OpSpecialization> specializations = self->specializations;
+  Array<OpSpecialization> specializations = self->specializations;  
   OpSpecialization op_spec;
   for (OpSpecialization op_spec : specializations) {
     if (op_spec->condition == curr_cond) {

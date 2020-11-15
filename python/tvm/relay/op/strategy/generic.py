@@ -26,7 +26,7 @@ from ....target import generic_func, override_native_generic_func
 
 logger = logging.getLogger('strategy')
 
-def wrap_topi_schedule(topi_schedule):
+def wrap_topi_schedule(topi_schedule):                  # 对schedule进行封装
     """Wrap TOPI schedule which doesn't use attrs"""
     def wrapper(attrs, outs, target):
         with target:
@@ -146,7 +146,7 @@ def schedule_bitpack(attrs, outs, target):
         return topi.generic.schedule_bitpack(outs)
 
 # conv2d
-def wrap_compute_conv2d(topi_compute, need_data_layout=False, need_out_layout=False,
+def wrap_compute_conv2d(topi_compute, need_data_layout=False, need_out_layout=False,    # 对conv2d的compute函数做了一个封装
                         has_groups=False):
     """Wrap conv2d topi compute"""
     def _compute_conv2d(attrs, inputs, out_type):
@@ -158,7 +158,7 @@ def wrap_compute_conv2d(topi_compute, need_data_layout=False, need_out_layout=Fa
         out_dtype = attrs.out_dtype
         out_dtype = (inputs[0].dtype if out_dtype in ("same", "")
                      else out_dtype)
-        args = [inputs[0], inputs[1], strides, padding, dilation]
+        args = [inputs[0], inputs[1], strides, padding, dilation]       # parse这个op的相关参数
         if has_groups:
             args.append(attrs.groups)
         if need_data_layout:
@@ -166,16 +166,16 @@ def wrap_compute_conv2d(topi_compute, need_data_layout=False, need_out_layout=Fa
         if need_out_layout:
             args.append(out_layout)
         args.append(out_dtype)
-        return [topi_compute(*args)]
+        return [topi_compute(*args)]                                    # 用传入的那个conv2d的compute去处理这些输入
     return _compute_conv2d
 
 @override_native_generic_func("conv2d_strategy")
-def conv2d_strategy(attrs, inputs, out_type, target):
+def conv2d_strategy(attrs, inputs, out_type, target):               # 这个Strategy是Conv2d一种比较通用的实现方式
     """conv2d generic strategy"""
-    logger.warning("conv2d is not optimized for this platform.")
-    strategy = _op.OpStrategy()
-    data, kernel = inputs
-    dilation = get_const_tuple(attrs.dilation)
+    logger.warning("conv2d is not optimized for this platform.")                
+    strategy = _op.OpStrategy()                                     # 构造一个默认的OpStrategy，这个类定义在include/tvm/relay/op_strategy.h中
+    data, kernel = inputs                                           # 就一个默认的构造函数，其实屁也没有
+    dilation = get_const_tuple(attrs.dilation)                      # 解析这个op的相关参数，已帮助决定使用哪种implementation
     groups = attrs.groups
     layout = attrs.data_layout
     kernel_layout = attrs.kernel_layout
@@ -186,9 +186,9 @@ def conv2d_strategy(attrs, inputs, out_type, target):
     if groups == 1:
         if layout == "NCHW":
             assert kernel_layout == "OIHW"
-            strategy.add_implementation(
-                wrap_compute_conv2d(topi.nn.conv2d_nchw),
-                wrap_topi_schedule(topi.generic.schedule_conv2d_nchw),
+            strategy.add_implementation(                                # 调用C++的AddImplementation()，src/relay/ir/op_strategy.cc的58行
+                wrap_compute_conv2d(topi.nn.conv2d_nchw),               # 一个函数指针，其对python中实现的conv2d的compute做了一个封装
+                wrap_topi_schedule(topi.generic.schedule_conv2d_nchw),  # 一个函数指针，其对python中实现的conv2d的schedule做了一个封装
                 name="conv2d_nchw.generic")
         elif layout == "NHWC":
             assert kernel_layout == "HWIO"

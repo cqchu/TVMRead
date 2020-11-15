@@ -201,7 +201,7 @@ def register_strategy(op_name, fstrategy=None, level=10):
     if not isinstance(fstrategy, GenericFunc):
         assert hasattr(fstrategy, "generic_func_node")
         fstrategy = fstrategy.generic_func_node
-    return tvm.ir.register_op_attr(op_name, "FTVMStrategy", fstrategy, level)
+    return tvm.ir.register_op_attr(op_name, "FTVMStrategy", fstrategy, level)   # 将某个op的FTVMStrategy这个attr设为一个函数指针
 
 
 def register_schedule(op_name, schedule, level=10):
