@@ -135,8 +135,8 @@ IRModule lower(te::Schedule sch, const Array<te::Tensor>& args, const std::strin
   sch = sch.normalize();
 
   // Before TIR transformation.
-  auto bounds = te::InferBound(sch);
-  auto stmt = te::ScheduleOps(sch, bounds, false);
+  auto bounds = te::InferBound(sch);                  // 首先根据Sch来InferBound
+  auto stmt = te::ScheduleOps(sch, bounds, false);    // 
   bool compact = te::VerifyCompactBuffer(stmt);
 
   Map<te::Tensor, tir::Buffer> out_binds;
@@ -144,6 +144,8 @@ IRModule lower(te::Schedule sch, const Array<te::Tensor>& args, const std::strin
 
   // build the function
   tir::PrimFunc f = te::SchedulePostProcToPrimFunc(out_arg_list, std::move(stmt), out_binds);
+  // std::cout << "####################################" << std::endl;
+  // std::cout << AsText(f, false) << std::endl;
   f = WithAttr(std::move(f), "global_symbol", runtime::String(name));
 
   bool noalias = pass_ctx->GetConfig<Bool>("tir.noalias", Bool(true)).value();
@@ -179,8 +181,11 @@ IRModule lower(te::Schedule sch, const Array<te::Tensor>& args, const std::strin
     pass_list.push_back(tir::transform::InstrumentBoundCheckers());
   }
   // run
+  
   auto optimize = transform::Sequential(pass_list);
-  mod = optimize(std::move(mod));
+  mod = optimize(std::move(mod));   
+  // std::cout << AsText(mod->Lookup(name), false) << std::endl;
+  // std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" << std::endl;
   return mod;
 }
 

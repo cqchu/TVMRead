@@ -44,8 +44,8 @@ te::Schedule OpImplementation::Schedule(const Attrs& attrs, const Array<te::Tens
 void OpSpecialization::AddImplementation(tvm::relay::FTVMCompute fcompute,
                                          tvm::relay::FTVMSchedule fschedule, String name,
                                          int plevel) {
-  auto n = make_object<OpImplementationNode>();
-  n->fcompute = fcompute;
+  auto n = make_object<OpImplementationNode>();             // 其实就是用传进来的compute和schedule构建了一个OpImplementation
+  n->fcompute = fcompute;                                   // 然后设给OpSpecialization的相关成员
   n->fschedule = fschedule;
   n->name = std::move(name);
   n->plevel = plevel;
@@ -56,18 +56,18 @@ void OpStrategy::AddImplementation(FTVMCompute fcompute, FTVMSchedule fschedule,
                                    int plevel) {
   auto curr_cond = te::SpecializedCondition::Current();             // 获取一下当前的SpecializedCondition
   auto self = this->operator->();
-  Array<OpSpecialization> specializations = self->specializations;  
+  Array<OpSpecialization> specializations = self->specializations;  // 获取一下这个OpStrategy当前的specializations
   OpSpecialization op_spec;
-  for (OpSpecialization op_spec : specializations) {
-    if (op_spec->condition == curr_cond) {
-      op_spec.AddImplementation(fcompute, fschedule, std::move(name), plevel);
+  for (OpSpecialization op_spec : specializations) {                // 如果这个OpStrategy针对这个condition已经有specialization
+    if (op_spec->condition == curr_cond) {                          // 则往这个op_specialization中添加对应的Implementation
+      op_spec.AddImplementation(fcompute, fschedule, std::move(name), plevel); 
       return;
     }
   }
-  ObjectPtr<OpSpecializationNode> n = make_object<OpSpecializationNode>();
+  ObjectPtr<OpSpecializationNode> n = make_object<OpSpecializationNode>();  // 如果这个OpStrategy之前未处理过这种condition
   n->condition = curr_cond;
-  op_spec = OpSpecialization(n);
-  op_spec.AddImplementation(fcompute, fschedule, std::move(name), plevel);
+  op_spec = OpSpecialization(n);                                            // 为这个op创建一个这种condition下的Specialization
+  op_spec.AddImplementation(fcompute, fschedule, std::move(name), plevel);  // 更新这个Specialization
   self->specializations.push_back(op_spec);
 }
 

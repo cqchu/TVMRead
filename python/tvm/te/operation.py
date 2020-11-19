@@ -109,7 +109,7 @@ def compute(shape, fcompute, name="compute", tag="", attrs=None):
         for i, s in enumerate(shape[out_ndim:]):
             var_name = "ax" + str(i)
             dim_var.append(tvm.tir.IterVar((0, s), var_name, 4))
-        op_node = _ffi_api.TensorComputeOp(name,
+        op_node = _ffi_api.TensorComputeOp(name,                    # 构建了一个TensorComputeOp
                                            tag,
                                            dim_var,
                                            body.reduce_axis,

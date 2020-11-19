@@ -20,7 +20,7 @@ import tvm.driver
 
 
 @tvm._ffi.register_func("relay.backend.lower")
-def lower(sch, inputs, func_name, source_func):
+def lower(sch, inputs, func_name, source_func):     # 真正的根据Schedule去进行lower
     """Backend function for lowering.
 
     Parameters
@@ -46,7 +46,7 @@ def lower(sch, inputs, func_name, source_func):
     import traceback
 
     try:
-        f = tvm.driver.lower(sch, inputs, name=func_name)
+        f = tvm.driver.lower(sch, inputs, name=func_name)       # 真正的lower函数，真的嵌套吐了
         # logging.debug("lower function %s", func_name)
         # logging.debug("%s", _build.lower(sch, inputs, simple_mode=True))
     except Exception:

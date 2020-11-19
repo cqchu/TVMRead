@@ -126,8 +126,8 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
     }                                                         // 避免后续再lower，这个Node时重新Lower，之后查表这个memo_就行
     readable_name_stream_ << "fused";
     cache_node->outputs = this->VisitExpr(prim_func->body);   // 调用这个ScheduleGetter::VisitExpr_()递归处理这个subfunc中的内容，处理的结果是这个subfunc的输出
-    auto candidate_name = readable_name_stream_.str();
-    constexpr static size_t kMaxFuncNameLength = 80;
+    auto candidate_name = readable_name_stream_.str();        // 同时Visit过程中，这个ScheduleGetter对应的这个Subfunc中Master Op的Implementation也已经更新为ScheduleGetter
+    constexpr static size_t kMaxFuncNameLength = 80;          // 的相关成员
     if (candidate_name.size() > kMaxFuncNameLength) {
       std::stringstream truncated_name;
       truncated_name << candidate_name.substr(0, kMaxFuncNameLength);
@@ -149,15 +149,15 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
     te::Schedule schedule;
     // No need to register schedule for device copy op.
     if (master_attrs_.as<DeviceCopyAttrs>() == nullptr) {
-      CHECK(master_implementation_.defined());
-      schedule = master_implementation_.Schedule(master_attrs_, tensor_outs, target_);
+      CHECK(master_implementation_.defined());              
+      schedule = master_implementation_.Schedule(master_attrs_, tensor_outs, target_);  // 获取一下遍历Subfunc得到的Schedule
       for (const auto& scalar : scalars_) {
         if (schedule->Contain(scalar)) {
           schedule[scalar].compute_inline();
         }
       }
     }
-    cache_node->schedule = std::move(schedule);
+    cache_node->schedule = std::move(schedule);     // 用这个最终的Schedule去给CachedFuncNode类型的cache_node去赋值，并返回
     return CachedFunc(cache_node);
   }
 
@@ -217,7 +217,7 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
     CHECK(call_node->op.as<OpNode>()) << "Primitive function only allows call into primitive ops";
     Op op = Downcast<Op>(call_node->op);                // 开始处理这个Call对应的那个Op
 
-    std::cout << op->name << std::endl;
+    // std::cout << op->name << std::endl;
 
     Array<te::Tensor> outputs;
     OpImplementation impl;
@@ -229,7 +229,7 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
     } else {                                            // 真正的去lower这个具体的op
       LoweredOutput lowered_out = (*flower_call)(GetRef<Call>(call_node), inputs, target_);
       outputs = lowered_out->outputs;                   // 导出lower的相关结果
-      impl = lowered_out->implementation;
+      impl = lowered_out->implementation;               // 获取了这个Op这种情况下最优的compute和schedule
     }
 
     int op_pattern = fpattern[op];
@@ -239,7 +239,7 @@ class ScheduleGetter : public backend::MemoizedExprTranslator<Array<te::Tensor>>
           << " master=" << master_op_ << " current=" << op;
     }
     if (op_pattern >= master_op_pattern_) {             // 每个subfunc对应多个Call/Op，这是维护那个Master Op，具体参考TVM layer fusion的思想
-      master_op_ = op;
+      master_op_ = op;                                  // 到此这个ScheduleGetter获取了最优的这个SubFunc的Master Op的最优的schedule和compute
       master_attrs_ = call_node->attrs;
       master_op_pattern_ = op_pattern;
       master_implementation_ = impl;
@@ -680,7 +680,8 @@ class CompileEngineImpl : public CompileEngineNode {
     // std::cout << "#################################################" << std::endl;
     // std::cout << "#################################################" << std::endl;
     // std::cout << "#################################################" << std::endl;
-    auto cfunc = CreateSchedule(key->source_func, key->target);   // 根据这个CCacheKey创建Schedule
+    // std::cout << AsText(key->source_func, false) << std::endl;
+    auto cfunc = CreateSchedule(key->source_func, key->target);   // 根据这个CCacheKey获取了其Schedule，然后用一个CCacheFunc去维护
     auto cache_node = make_object<CachedFuncNode>(*(cfunc.operator->()));
 
     // Skip lowering for device copy node.
@@ -699,15 +700,15 @@ class CompileEngineImpl : public CompileEngineNode {
       all_args.push_back(arg);
     }
     // lower the function
-    if (const auto* f = runtime::Registry::Get("relay.backend.lower")) {
-      cache_node->funcs = (*f)(cfunc->schedule, all_args, cache_node->func_name, key->source_func);
-    } else {
+    // if (const auto* f = runtime::Registry::Get("relay.backend.lower")) {   // 根据那个Schedule去进行真正的lower，还是看下面这个C++的函数，两者是一致的
+    //   cache_node->funcs = (*f)(cfunc->schedule, all_args, cache_node->func_name, key->source_func);
+    // } else {
       using tvm::transform::PassContext;
       With<PassContext> fresh_pass_ctx_scope(PassContext::Create());
 
       std::unordered_map<te::Tensor, tir::Buffer> binds;
-      cache_node->funcs = tvm::lower(cfunc->schedule, all_args, cache_node->func_name, binds);
-    }
+      cache_node->funcs = tvm::lower(cfunc->schedule, all_args, cache_node->func_name, binds);  // lower得到最终的IRModule
+    // }
     value->cached_func = CachedFunc(cache_node);
     return value;
   }

@@ -90,7 +90,7 @@ def get_shape(shape):
     return ret
 
 
-def get_valid_implementations(op, attrs, inputs, out_type, target):
+def get_valid_implementations(op, attrs, inputs, out_type, target): # 把这个Op的各种合理的Implementation返回回去，Implementation就是Compute和Schedule组成的二元组
     """Get all valid implementations from the op strategy.
 
     Note that this function doesn't support op with symbolic input shapes.
@@ -117,10 +117,10 @@ def get_valid_implementations(op, attrs, inputs, out_type, target):
     ret : List[relay.op.OpImplementation]
         The list of all valid op implementations.
     """
-    fstrategy = op.get_attr("FTVMStrategy")
+    fstrategy = op.get_attr("FTVMStrategy")                     # 找到这个op的FStrategy函数，这个函数就是返回这个Op对应的Strategy
     assert fstrategy is not None, "%s doesn't have FTVMStrategy registered" % op.name
     with target:
-        strategy = fstrategy(attrs, inputs, out_type, target)
+        strategy = fstrategy(attrs, inputs, out_type, target)   # 获取了这个op的Strategy
     analyzer = tvm.arith.Analyzer()
     ret = []
     for spec in strategy.specializations:
@@ -186,7 +186,7 @@ def select_implementation(op, attrs, inputs, out_type, target, use_autotvm=True)
         if best_plevel_impl is None or impl.plevel > best_plevel_impl.plevel:
             best_plevel_impl = impl
     if not use_autotvm:                                                             # 如果不用Auto TVM，则直接将之返回
-        outs = best_plevel_impl.compute(attrs, inputs, out_type)
+        outs = best_plevel_impl.compute(attrs, inputs, out_type)                    # 获取这种Implementation的compute函数，由之可以计算出一个OutTensor
         return best_plevel_impl, outs
 
     outputs = {}                    # auto TVM相关的
@@ -271,7 +271,7 @@ def lower_call(call, inputs, target):
     # re-enable AutoTVM tracing
     if reenable_tracing:
         env.tracing = True
-    return LoweredOutput(outputs, best_impl)                # 将lower的结果，op_implementation和
+    return LoweredOutput(outputs, best_impl)                # 将lower的结果，op_implementation和这个op的output返回回去
 
 
 @tvm._ffi.register_object("relay.CompileEngine")
