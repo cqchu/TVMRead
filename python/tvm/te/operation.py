@@ -90,20 +90,22 @@ def compute(shape, fcompute, name="compute", tag="", attrs=None):
     # for python3
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     ndim = len(shape)
-    code = fcompute.__code__
+    code = fcompute.__code__        # code就是你的fcompute那个lambda的字符串
 
     out_ndim = ndim
     if code.co_argcount == 0:
         arg_names = ["i%d" % i for i in range(ndim)]
     else:
-        arg_names = code.co_varnames[:code.co_argcount]
-        out_ndim = code.co_argcount
+        arg_names = code.co_varnames[:code.co_argcount]     # 参数名字[参数个数]
+        out_ndim = code.co_argcount                         # 参数个数
 
     if out_ndim != len(arg_names):
         raise ValueError("fcompute do not match dimension, ndim=%d" % ndim)
 
-    dim_var = [tvm.tir.IterVar((0, s), x, 0) for x, s in zip(arg_names, shape[:out_ndim])]
-    body = fcompute(*[v.var for v in dim_var])
+    dim_var = [tvm.tir.IterVar((0, s), x, 0) for x, s in zip(arg_names, shape[:out_ndim])]  #迭代变量
+    # print(dim_var)
+    body = fcompute(*[v.var for v in dim_var])              # 替换lambda中的值
+    # print(body)
 
     if isinstance(body, _tensor.TensorIntrinCall):
         for i, s in enumerate(shape[out_ndim:]):
@@ -122,8 +124,8 @@ def compute(shape, fcompute, name="compute", tag="", attrs=None):
         if not isinstance(body, (list, tuple)):
             body = [body]
         body = convert(body)
-        op_node = _ffi_api.ComputeOp(
-            name, tag, attrs, dim_var, body)
+        op_node = _ffi_api.ComputeOp(                               # 用python中的compute构建C++中的ComputeOp
+            name, tag, attrs, dim_var, body)                        # src/te/operation/compute_op.cc 145行
 
     num = op_node.num_outputs
     outputs = tuple(op_node.output(i) for i in range(num))

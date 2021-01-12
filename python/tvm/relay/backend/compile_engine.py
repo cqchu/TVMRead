@@ -225,7 +225,7 @@ def select_implementation(op, attrs, inputs, out_type, target, use_autotvm=True)
     return best_plevel_impl, outputs[best_plevel_impl]
 
 
-@tvm._ffi.register_func("relay.backend.lower_call")     # 真正的lower一个op
+@tvm._ffi.register_func("relay.backend.lower_call")     # 获取一个op对应的最优OpImplementation
 def lower_call(call, inputs, target):
     """Lower the call expression to op implementation and tensor outputs."""
     assert isinstance(call.op, tvm.ir.Op)
@@ -259,7 +259,7 @@ def lower_call(call, inputs, target):
             reenable_tracing = True
 
     if not is_dyn:
-        best_impl, outputs = select_implementation(         # 获取了一系列Lower需要的信息，lower
+        best_impl, outputs = select_implementation(         # 选择该op一个最优的OpImplementation
             op, call.attrs, inputs, ret_type, target)
         logger.info("Use implementation %s for op %s", best_impl.name, op.name)
     else:

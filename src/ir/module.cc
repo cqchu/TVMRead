@@ -336,7 +336,7 @@ IRModule IRModule::FromExpr(const RelayExpr& expr,      // 构造IRModule，并�
   auto mod = IRModule(global_funcs, type_definitions);    // 用后两个参数构造一个IRModule, 其实就是全为空
   BaseFunc func;
   std::string gv_name = "main";
-
+  
   if (auto* func_node = expr.as<BaseFuncNode>()) {  // 如果Expr中的data_已经是一个BaseFuncNode了，则返回Expr的data_指针
     func = GetRef<BaseFunc>(func_node);             // 根据BaseFuncNode类型的指针创建BaseFunc对象          
     if (auto opt = func->GetAttr<String>(tvm::attr::kGlobalSymbol)) { // 如果func中已经设置好了GlobalSymbal的话，那么就用设置好的name，否则就用默认的main
@@ -348,6 +348,7 @@ IRModule IRModule::FromExpr(const RelayExpr& expr,      // 构造IRModule，并�
   }
   auto main_gv = GlobalVar(gv_name);        // 设置一个默认的GlobalVar
   mod->Add(main_gv, func);                  // 将这个GlobalVar和BaseFunc构造一个映射，存储在IRModule的data_所指的IRModuleNode的functions中
+  // std::cout << AsText(func, false) << std::endl;
   return mod;
 }
 

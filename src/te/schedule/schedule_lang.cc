@@ -624,23 +624,23 @@ bool ScheduleNode::Contain(const Operation& op) const {
   return stage_map.find(op) != stage_map.end();
 }
 
-Schedule::Schedule(Array<Operation> ops) {
+Schedule::Schedule(Array<Operation> ops) {        // 为相应ComputeOp创建Schedule
   auto n = make_object<ScheduleNode>();
   data_ = n;
   n->outputs = ops;
-  auto g = te::CreateReadGraph(n->outputs);
-  Array<Operation> post_order = te::PostDFSOrder(n->outputs, g);
+  auto g = te::CreateReadGraph(n->outputs);                       // ReadGraph
+  Array<Operation> post_order = te::PostDFSOrder(n->outputs, g);  // 以PostDFS的顺序遍历这个图
   // output set.
   std::unordered_set<Operation> output_set;
   for (Operation x : ops) {
     output_set.insert(x);
   }
-  for (Operation op : post_order) {
-    Stage stage(op);
+  for (Operation op : post_order) {          
+    Stage stage(op);                                      // 为op构建一个初始的stage      
     stage->is_output = output_set.count(op) != 0;
-    n->stages.push_back(stage);
-    n->stage_map.Set(op, stage);
-    // mark scan updates.
+    n->stages.push_back(stage);                           // stage加入到schedule中相关成员中
+    n->stage_map.Set(op, stage);                          // 这里只是为每个op创建了一个对应的stage，但并没有说怎么去优化
+    // mark scan updates.                                 // 这些东西都是在python层面去调用stage中相关函数去实现的
     if (const ScanOpNode* scan = op.as<ScanOpNode>()) {
       Array<Tensor> inputs;
       for (Tensor t : scan->state_placeholder) {

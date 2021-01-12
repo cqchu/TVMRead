@@ -185,27 +185,27 @@ class GraphOpNode : public GraphNode {
 class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<GraphNodeRef>> {
  public:
   GraphRuntimeCodegen(runtime::Module* mod, const TargetsMap& targets) : mod_(mod) {
-    compile_engine_ = CompileEngine::Global();
+    compile_engine_ = CompileEngine::Global();    // 这个ref类指向一个CompileEngineImpl类对象
     targets_ = targets;
   }
 
   LoweredOutput Codegen(relay::Function func) {
-    auto pf = GetPackedFunc("relay.backend.GraphPlanMemory");
-    storage_device_map_ = (*pf)(func);                            // Expr -> <StorageID, DeviceType>的映射
+    auto pf = GetPackedFunc("relay.backend.GraphPlanMemory");     // src/relay/backend/graph_plan_memory.cc中398行
+    storage_device_map_ = (*pf)(func);                            // 一个Map，其中存着若干关于 Expr -> <StorageID, DeviceType> 的映射
     // First we convert all the parameters into input nodes.
     std::cout << "***********************************************************************************" << std::endl;
     std::cout << "********************************* Code Generation *********************************" << std::endl;
     std::cout << "***********************************************************************************" << std::endl;
     for (auto param : func->params) {
       auto node_ptr = GraphInputNode::make_node_ptr(param->name_hint(), GraphAttrs());  // 用此时输入的那个Var构造一个GraphNode
-      var_map_[param.get()] = AddNode(node_ptr, param);                                 // 把这个GraphNode插入Graph中，此时Graph中的Node都是这些输入的Node
-    }
-    // std::cout << AsText(func, false);
+      var_map_[param.get()] = AddNode(node_ptr, param);                                 // GraphRuntimeCodegen中维护了一个graph, 把这个GraphNode
+    }                                                                                   // 插入Graph中，此时Graph中的Node都是这些输入的Node
+    // std::cout << AsText(func, false) << std::endl;
     // std::cout << func->body->GetTypeKey() << std::endl;
-    heads_ = VisitExpr(func->body); // 真正的开始去low
+    heads_ = VisitExpr(func->body);         // 真正的开始去low, func->body是Call类型
     // std::cout << AsText(func, false);
     std::ostringstream os;
-    dmlc::JSONWriter writer(&os);   // 构造一个默认JSONWriter，然后将之与这个os绑定
+    dmlc::JSONWriter writer(&os);           // 构造一个默认JSONWriter，然后将之与这个os绑定
     GetJSON(&writer);
     LoweredOutput ret;
     ret.graph_json = os.str();
@@ -246,12 +246,12 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
    * \param expr
    * \return std::vector<_NodeRef>
    */
-  std::vector<GraphNodeRef> AddNode(GraphObjectPtr node, Expr expr) { // 由一个Expr构建一个GraphNode，存入node_数组中，同时返回这个node的Ref
-    auto checked_type = expr->checked_type();
+  std::vector<GraphNodeRef> AddNode(GraphObjectPtr node, Expr expr) { // 传入一个Init的GraphNode以及Expr, 由Expr设置GraphNode的Attrs
+    auto checked_type = expr->checked_type();                         // 存入GraphRuntimeCodegen::node_数组中，同时返回这个node的Ref
     size_t count = storage_device_map_.count(expr);
     CHECK_GT(count, 0) << "Expr is not existing in storage plan";
     auto storage_device_info = storage_device_map_[expr];
-    CHECK_EQ(storage_device_info.size(), 2);      // 获取这个Expr的 StorageID 和 DeviceID
+    CHECK_EQ(storage_device_info.size(), 2);                    // 获取这个Expr的 StorageID 和 DeviceID
     // storage
     std::vector<int64_t> storage_info;
     for (auto& v : storage_device_info[0]) {
@@ -347,7 +347,7 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
     return AddNode(node, GetRef<Expr>(op));
   }
 
-  std::vector<GraphNodeRef> VisitExpr_(const CallNode* op) override {
+  std::vector<GraphNodeRef> VisitExpr_(const CallNode* op) override {     // 对Call类型Lower的过程
     Expr expr = GetRef<Expr>(op);
     Function func;
     if (op->op.as<OpNode>()) {
@@ -412,13 +412,13 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
       target = targets_[call_dev_type];
     }
     // 到此获取了这个Call中的那个函数，以及对应的编译的target
-    CCacheKey key = (*pf0)(func, target);
-    CachedFunc lowered_func = (*pf1)(compile_engine_, key);
+    CCacheKey key = (*pf0)(func, target);   // 构造CCacheKey
+    CachedFunc lowered_func = (*pf1)(compile_engine_, key);   // CompileEngine::Lower()函数, Lower的结果是一个CachedFunc
     if (!lowered_funcs_.count(target->str())) {
       lowered_funcs_[target->str()] = IRModule();
     }
-    lowered_funcs_[target->str()]->Update(lowered_func->funcs);
-    return GraphAddCallNode(op, _GetUniqueName(lowered_func->func_name), lowered_func->func_name);
+    lowered_funcs_[target->str()]->Update(lowered_func->funcs); // 将编译的结果加到GraphRuntimeCodegen相关成员中
+    return GraphAddCallNode(op, _GetUniqueName(lowered_func->func_name), lowered_func->func_name);  // 在Graph中更新nodes_
   }
 
   std::vector<GraphNodeRef> VisitExpr_(const LetNode* op) override {
@@ -541,13 +541,13 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
 
  protected:
   /*! \brief nodes */
-  std::vector<GraphObjectPtr> nodes_;
+  std::vector<GraphObjectPtr> nodes_;                                       // 维护这张Graph中的Node
   /*! \brief output of graph */
   std::vector<GraphNodeRef> heads_;
   /*! \brief mod */
   runtime::Module* mod_;
   /*! \brief variable map */
-  std::unordered_map<const Object*, std::vector<GraphNodeRef>> var_map_;
+  std::unordered_map<const Object*, std::vector<GraphNodeRef>> var_map_;    // 记录网络中输入的那些节点对应的GraphNode
   /*! \brief target device */
   TargetsMap targets_;
   /*! \brief params */
@@ -555,7 +555,7 @@ class GraphRuntimeCodegen : public backend::MemoizedExprTranslator<std::vector<G
   /*! \brief plan memory of device result */
   Map<Expr, Array<IntegerArray>> storage_device_map_;
   /*! \brief lowered funcs */
-  std::unordered_map<std::string, IRModule> lowered_funcs_;
+  std::unordered_map<std::string, IRModule> lowered_funcs_;                 // 一个Relay Func的Lower结果
   /*! \brief name map */
   std::unordered_map<std::string, size_t> name_map_;
   /*! \brief compile engine */
@@ -578,13 +578,13 @@ class GraphRuntimeCodegenModule : public runtime::ModuleNode {
           CHECK(dev_type);
           targets[dev_type->value] = it.second;
         }
-        codegen_ =
-            std::make_shared<GraphRuntimeCodegen>(reinterpret_cast<runtime::Module*>(mod), targets);
+        codegen_ =                                                                                    // 本函数最核心的工作，将本类的codegen_指针指向一个GraphRuntimeCodegen对象
+            std::make_shared<GraphRuntimeCodegen>(reinterpret_cast<runtime::Module*>(mod), targets);  // 这个codegen_中有一个指向CompileEngine的指针
       });
     } else if (name == "codegen") {
       return PackedFunc([sptr_to_self, this](TVMArgs args, TVMRetValue* rv) {
         Function func = args[0];
-        this->output_ = this->codegen_->Codegen(func);
+        this->output_ = this->codegen_->Codegen(func);  // 真正的Codegen这个Func
       });
     } else if (name == "get_graph_json") {
       return PackedFunc(

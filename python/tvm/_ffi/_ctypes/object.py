@@ -23,7 +23,7 @@ from .ndarray import _register_ndarray, NDArrayBase
 
 
 ObjectHandle = ctypes.c_void_p
-__init_by_constructor__ = None
+__init_by_constructor__ = None  # python/tvm/_ffi/_ctypes/packed_func.py:277进行了赋值
 
 """Maps object type to its constructor"""
 OBJECT_TYPE = {}

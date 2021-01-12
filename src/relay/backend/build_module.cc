@@ -63,9 +63,9 @@ struct GraphCodegen {
   }                     // 这个ref类的data_指针指向GraphRuntimeCodegenModule这个Data类
   ~GraphCodegen() {}    // GraphCodegen::mod指向一个GraphRuntimeCodegenModule的Ref类
 
-  void Init(runtime::Module* m, TargetsMap targets) { CallFunc("init", m, targets); }
+  void Init(runtime::Module* m, TargetsMap targets) { CallFunc("init", m, targets); } // src/relay/backend/graph_runtime_codegen.cc 569行
 
-  void Codegen(const Function& func) { CallFunc("codegen", func); }
+  void Codegen(const Function& func) { CallFunc("codegen", func); }                   // src/relay/backend/graph_runtime_codegen.cc 584行
 
   std::string GetJSON() { return CallFunc<std::string>("get_graph_json", nullptr); }
 
@@ -428,18 +428,20 @@ class RelayBuildModule : public runtime::ModuleNode {
   void BuildRelay(IRModule relay_module,
                   const std::unordered_map<std::string, tvm::runtime::NDArray>& params) {
     // Relay IRModule -> IRModule optimizations.
+    // std::cout << "Before Optimization\n" << AsText(relay_module->Lookup("main"), false) << std::endl;
     relay_module = Optimize(relay_module, targets_, params);        // 用一系列Pass对Relay进行图优化
+    // std::cout << "After Optimization\n" << AsText(relay_module->Lookup("main"), false) << std::endl;
+
     // Get the updated function.
     auto func = Downcast<Function>(relay_module->Lookup("main"));   // 获取此时IRModule中的那个Func
-    // std::cout << AsText(func, false);
-    // std::cout << func << std::endl;
 
     // Generate code for the updated function.
-    graph_codegen_ = std::unique_ptr<GraphCodegen>(new GraphCodegen());
-    graph_codegen_->Init(nullptr, targets_);
-    graph_codegen_->Codegen(func);
+    graph_codegen_ = std::unique_ptr<GraphCodegen>(new GraphCodegen());   // 创建了一个GraphCodegen，该类中有个GraphRuntimeCodegenModule成员
+    graph_codegen_->Init(nullptr, targets_);                              // 设置GraphCodegen中GraphRuntimeCodegenModule的codegen_成员
+                                                                          // 设置codegen_中的compile_engine_成员
+    graph_codegen_->Codegen(func);            // 去Codegen
 
-    ret_.graph_json = graph_codegen_->GetJSON();
+    ret_.graph_json = graph_codegen_->GetJSON();  // 将结果放在ret_中，以便之后进一步返回到python中
     ret_.params = graph_codegen_->GetParams();
 
     auto lowered_funcs = graph_codegen_->GetIRModule();

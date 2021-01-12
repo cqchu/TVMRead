@@ -68,8 +68,8 @@ namespace te {
 
 // construct a read graph that gives readers of each operation
 // that the root depend on
-ReadGraph CreateReadGraph(const Array<Operation>& roots) {
-  ReadGraph rmap;
+ReadGraph CreateReadGraph(const Array<Operation>& roots) {    // 就是一个遍历图的东西
+  ReadGraph rmap;                                             // 一个Map，存储了图中的ComputeOp及Op对应的InputTensor
   std::vector<Operation> stack;
   std::unordered_set<const Object*> visited;
   // initialize the roots
@@ -82,7 +82,7 @@ ReadGraph CreateReadGraph(const Array<Operation>& roots) {
     Operation op = stack.back();
     stack.pop_back();
     Array<Tensor> deps = op->InputTensors();
-    rmap.Set(op, deps);
+    rmap.Set(op, deps);                                     // 存入rmap
     for (Tensor t : deps) {
       if (t->op.defined() && visited.count(t->op.get()) == 0) {
         visited.insert(t->op.get());

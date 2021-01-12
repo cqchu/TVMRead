@@ -197,7 +197,7 @@ class Tuple(ExprWithOp):
         raise TypeError("astype cannot be used on tuple")
 
 
-@tvm._ffi.register_object("relay.Var") # import这个文件的时候会注册一次
+@tvm._ffi.register_object("relay.Var") # import这个文件的时候会注册一次，把在C++中注册过的东西在python中再注册一次
 class Var(ExprWithOp):            
     """A local variable in Relay.
 

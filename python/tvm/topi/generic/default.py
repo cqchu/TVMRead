@@ -26,7 +26,7 @@ def default_schedule(outs, auto_inline):
     outs = [outs] if isinstance(outs, te.tensor.Tensor) else outs
     if target.kind.name not in ("llvm", "c"):
         raise RuntimeError("schedule not registered for '%s'" % target)
-    s = te.create_schedule([x.op for x in outs])
+    s = te.create_schedule([x.op for x in outs])        # 为相关op创建Schedule
     if auto_inline:
         x = outs[0]
         te.schedule.AutoInlineInjective(s)

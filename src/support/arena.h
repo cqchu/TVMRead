@@ -126,7 +126,7 @@ class GenericArena {
   template <typename T>
   T* allocate_(int count = 1) {
     static_assert(PageAllocator::kPageAlign % alignof(T) == 0, "To large alignment");
-    return static_cast<T*>(Alloc(sizeof(T) * count, alignof(T)));
+    return static_cast<T*>(Alloc(sizeof(T) * count, alignof(T)));     // 调用Alloc去分配memory
   }
   /*!
    * \brief Create a new instance of type T.
@@ -141,8 +141,8 @@ class GenericArena {
    */
   template <typename T, typename... Args>
   T* make(Args&&... args) {
-    T* ptr = allocate_<T>();
-    new (ptr) T(std::forward<Args>(args)...);
+    T* ptr = allocate_<T>();                    // 创建了一个T的指针，指向一片alignof()后的memory
+    new (ptr) T(std::forward<Args>(args)...);   // 转发参数，在这片memory上构造T的对象
     return ptr;
   }
 
@@ -169,18 +169,18 @@ class GenericArena {
    * \param align The alignment requirement.
    */
   void* Alloc(size_t size, size_t align) {
-    size_t offset = UpperAlign(head_->offset, align);
-    if (offset + size <= head_->size) {
+    size_t offset = UpperAlign(head_->offset, align);   // 把offset置到满足alignment的位置
+    if (offset + size <= head_->size) {                 // 这一个page可以放下就在这个page中分配memory
       head_->offset = offset + size;
       return reinterpret_cast<char*>(head_) + offset;
-    } else {
+    } else {                                            // 创建一个新page
       ArenaPageHeader* new_head;
-      offset = UpperAlign(sizeof(ArenaPageHeader), align);
-      if (free_list_ != nullptr && offset + size <= free_list_->size) {
+      offset = UpperAlign(sizeof(ArenaPageHeader), align);                // page头部用于存放一个记录下一个page的指针
+      if (free_list_ != nullptr && offset + size <= free_list_->size) {   // free_list中可以存放
         new_head = free_list_;
-        free_list_ = free_list_->next;
+        free_list_ = free_list_->next;                                    // update free_list
       } else {
-        new_head = alloc_.allocate(offset + size);
+        new_head = alloc_.allocate(offset + size);                        // 调用SimplePageAllocator中allocate函数构造新page
       }
       new_head->next = head_;
       new_head->offset = offset + size;

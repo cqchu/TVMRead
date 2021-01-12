@@ -452,7 +452,7 @@ class StageNode : public Object {
   /*! \brief All the nodes in the iter var */
   Array<IterVar> all_iter_vars;
   /*! \brief The current active leaf iter vars in the stage. */
-  Array<IterVar> leaf_iter_vars;
+  Array<IterVar> leaf_iter_vars;    // 初始时是reduce axis
   /*!
    * \brief Specify threads to be launched at the stage.
    *  This is only valid for composite ops such as Scan.
@@ -568,7 +568,7 @@ class ScheduleNode : public Object {
  * \param ops The ops to be scheduled.
  * \return sch The created Schedule.
  */
-inline Schedule create_schedule(Array<Operation> ops) { return Schedule(ops); }
+inline Schedule create_schedule(Array<Operation> ops) { return Schedule(ops); }   // 为相应的Op创建Schedule
 
 /*! \brief node container for IterVar attr */
 class IterVarAttrNode : public Object {

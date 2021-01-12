@@ -8,7 +8,7 @@ from tvm.contrib import graph_runtime
 
 print("##################### MY CODE START #####################")
 
-data_shape = (1, 3, 64, 64)
+data_shape = (16, 3, 32, 32)
 dtype = "float32"
 data_layout = "NCHW"
 kernel_layout = "OIHW"
@@ -22,10 +22,12 @@ moving_mean = relay.var("bn0_moving_mean")
 moving_var = relay.var("bn0_moving_var")
 
 ##### Net Structure #####
-body = relay.nn.conv2d(data=data, weight=weight, channels=32, kernel_size=(3, 3), strides=(1, 1),   # 继续看看op吧，这个relay.nn.conv2d是对_make.conv2d的封装
+conv = relay.nn.conv2d(data=data, weight=weight, channels=64, kernel_size=(3, 3), strides=(1, 1),   # 继续看看op吧，这个relay.nn.conv2d是对_make.conv2d的封装
                        padding=(1, 1), data_layout=data_layout, kernel_layout=kernel_layout)        # 获取了一个Call对象，其继承自Relay::Expr
-body = relay.nn.batch_norm(data=body, gamma=gamma, beta=beta, moving_mean=moving_mean, moving_var=moving_var, axis=bn_axis)[0]
-out = relay.nn.relu(data=body)                                                                      # 完成了网络的构建
+bn = relay.nn.batch_norm(data=conv, gamma=gamma, beta=beta, moving_mean=moving_mean, moving_var=moving_var, axis=bn_axis)[0]
+relu = relay.nn.relu(data=data)                                                                      # 完成了网络的构建
+out = relu
+
 free_vars = relay.analysis.free_vars(out)   # 其实就是自己定义的这几个变量 --------- 这一行需要跳进去有遍历图的函数 ExprVistor, 后续需要细看
 net = relay.Function(free_vars, out)        # 调用C++构造函数，构建一个Function
                                             # include/tvm/relay/function.h:104

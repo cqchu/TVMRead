@@ -87,13 +87,13 @@ class MemoizedExprTranslator : public ::tvm::relay::ExprFunctor<OutputType(const
       return it->second;
     }
     auto res = BaseFunctor::VisitExpr(n);   // 否则真正的去visit
-    memo_[n] = res;
+    memo_[n] = res;                         // 记录一下visit的结果
     return res;
   }
 
  protected:
   /*! \brief Internal map used for memoization. */
-  std::unordered_map<Expr, OutputType, ObjectPtrHash, ObjectPtrEqual> memo_;
+  std::unordered_map<Expr, OutputType, ObjectPtrHash, ObjectPtrEqual> memo_;  // 用于记录已经VisitExpr的结果
 };
 
 /*!

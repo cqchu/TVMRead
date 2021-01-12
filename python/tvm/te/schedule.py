@@ -57,7 +57,7 @@ def create_schedule(ops):
     """
     if not isinstance(ops, (list, _container.Array)):
         ops = [ops]
-    return _ffi_api.CreateSchedule(ops)
+    return _ffi_api.CreateSchedule(ops)     # 在C++中创建Schedule, src/te/schedule/schedule_lang.cc 809行
 
 
 @tvm._ffi.register_object

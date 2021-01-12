@@ -54,6 +54,7 @@ class StorageAllocaBaseVisitor : public ExprVisitor {
   void Run(const Function& func) {
     for (Var param : func->params) {                  // 为data这个Var创建StorageToken
       // std::cout << "##############" << std::endl;
+      // std::cout << param->name_hint() << std::endl;
       CreateToken(param.operator->(), false);
       // std::cout << "**************" << std::endl;
     }
@@ -114,7 +115,7 @@ class StorageAllocaBaseVisitor : public ExprVisitor {
 
  protected:
   /*! \brief internal token map */
-  std::unordered_map<const ExprNode*, std::vector<StorageToken*> > token_map_;
+  std::unordered_map<const ExprNode*, std::vector<StorageToken*> > token_map_;    // 真正的TokenMap
 
   /*!
    * \brief Get the necessary token.
@@ -213,7 +214,7 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
   Map<Expr, Array<IntegerArray> > Plan(const Function& func) {
     prototype_ = StorageAllocaInit(&arena_).GetInitTokenMap(func);      // 遍历整个网络，获得一个初始的Expr->StorageToken的Map，存在Prototype_
     this->Run(func);                                                    // 遍历整个网络，更新了这个Map->StorageToken的Map，存在token_map_中
-
+                                                                        // 其中相关VisitExpr_()被重载了，所以相同的Run()跑出了不同的结果
     // The value of smap contains two integer arrays where the first array
     // contains the planned storage ids and the second holds the device types.
     Map<Expr, Array<IntegerArray> > smap;                               
@@ -232,7 +233,7 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
         storage_ids.push_back(tok->storage_id);
         device_types.push_back(tok->device_type);
       }
-      smap.Set(GetRef<Expr>(kv.first), Array<IntegerArray>({storage_ids, device_types}));
+      smap.Set(GetRef<Expr>(kv.first), Array<IntegerArray>({storage_ids, device_types}));   // 这就是所谓的smap，其相对于token_map_多了一个device_type的信息
     }
     // Either all or none of the nodes should be annotated.
     if (num_annotated_nodes != 0 && num_annotated_nodes != num_nodes) {
@@ -254,10 +255,10 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
     std::vector<StorageToken*> tokens;
     for (StorageToken* tok : it->second) {    // 从StorageAllocaInit的结果中找到这个初始的StorageToken  
       if (can_realloc) {
-        tokens.push_back(Request(tok));
+        tokens.push_back(Request(tok));       // 对于可以内存复用的Node的处理   -----   未看完 0112 - (8)
       } else {
         // Allocate a new token,              // 对这个StorageToken做进一步处理，别看这里有这么多指针，其实都是指向最开始这个InitStorageToken
-        StorageToken* allocated_tok = Alloc(tok, GetMemorySize(tok));
+        StorageToken* allocated_tok = Alloc(tok, GetMemorySize(tok));   // 并不是真正的分配memory，StorageToken只是维护这个Node占用Memory的大小，生存期等相关信息
         allocated_tok->device_type = tok->device_type;
         // ensure it never get de-allocated.
         allocated_tok->ref_counter += 1;
@@ -276,7 +277,7 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
       }
     }
     // create token for the call node.
-    CreateToken(op, true);
+    CreateToken(op, true);              // CallNode的这个Can_release被设为true
     // check if there is orphaned output that can be released immediately.
     for (StorageToken* tok : token_map_.at(op)) {
       CheckForRelease(tok);             // 如果这个Call是个中间结果，则将之置为可以Release的，用free_来维护
@@ -386,9 +387,9 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
   // free list of storage entry
   std::multimap<size_t, StorageToken*> free_;
   // all the storage resources available
-  std::vector<StorageToken*> data_;
+  std::vector<StorageToken*> data_;                                         
   /*! \brief internal prototype token map */
-  std::unordered_map<const ExprNode*, std::vector<StorageToken*> > prototype_;
+  std::unordered_map<const ExprNode*, std::vector<StorageToken*> > prototype_;    // init的内存分配方案
 };
 
 Map<Expr, Array<IntegerArray> > GraphPlanMemory(const Function& func) {

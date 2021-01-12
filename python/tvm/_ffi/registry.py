@@ -299,7 +299,7 @@ def _init_api_prefix(module_name, prefix):              # _init_api_prefix("tvm.
 
         if fname.find(".") != -1:
             continue
-        f = get_global_func(name)                       # 这个应该是根据"Var"这个名字获取对应函数的handle，然后封装成的那个python PackedFunc对象的指针
+        f = get_global_func(name)                       # 这个应该是根据"Var"这个名字获取对应函数的handle，然后封装成的那个python PackedFunc对象的handle
         ff = _get_api(f)                                # 把这个PackedFunc设置为global的
         ff.__name__ = fname
         ff.__doc__ = ("TVM PackedFunc %s. " % fname)

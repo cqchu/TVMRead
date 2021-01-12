@@ -118,7 +118,7 @@ class PackedFunc {
    */
   template <typename... Args>
   inline TVMRetValue operator()(Args&&... args) const;          // 这里应该是声明了两个调用PackedFunc的接口
-  /*!                                                           // 之后模板实例化时应该各自实现了吧
+  /*!                                                       
    * \brief Call the function in packed format.
    * \param args The arguments
    * \param rv The return value.
@@ -362,7 +362,7 @@ struct ObjectTypeChecker {
  */
 class TVMPODValue_ {
  public:
-  operator double() const {
+  operator double() const {                             // 重载了一些强制转换运算符
     // Allow automatic conversion from int to float
     // This avoids errors when user pass in int from
     // the frontend while the API expects a float.

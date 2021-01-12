@@ -73,9 +73,9 @@ class TensorNode : public DataProducerNode {
   /*! \brief data type in the content of the tensor */
   DataType dtype;
   /*! \brief the source operation, can be None */
-  Operation op;
+  Operation op;           // 表示这个Tensor是由哪个Op计算出来的
   /*! \brief the output index from source operation */
-  int value_index{0};
+  int value_index{0};     // 表示是这个Op的第几个输出
   /*! \brief constructor */
   TensorNode() {}
 
