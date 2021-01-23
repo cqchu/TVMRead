@@ -57,7 +57,7 @@ String TensorNode::GetNameHint() const {
   return op->num_outputs() == 1 ? op->name : (op->name + ".v" + std::to_string(value_index));
 }
 
-Tensor Operation::output(size_t i) const {
+Tensor Operation::output(size_t i) const {    // 构建一个tensor，返回
   auto node = make_object<TensorNode>();
   node->op = *this;
   node->value_index = i;

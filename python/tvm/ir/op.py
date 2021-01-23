@@ -109,6 +109,6 @@ def register_op_attr(op_name, attr_key, value=None, level=10):
     """
     def _register(v):
         """internal register function"""
-        _ffi_api.RegisterOpAttr(op_name, attr_key, v, level)
+        _ffi_api.RegisterOpAttr(op_name, attr_key, v, level)        # src/ir/op.cc 106行
         return v
     return _register(value) if value is not None else _register

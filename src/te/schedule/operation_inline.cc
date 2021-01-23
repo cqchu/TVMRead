@@ -75,12 +75,12 @@ class OperationInliner final : public StmtExprMutator {
   }
 
  private:
-  Operation operation_;
-  Array<Var> args_;
-  PrimExpr body_;
+  Operation operation_;     // ComputeOp
+  Array<Var> args_;         // Lambda的那几个输入Axis
+  PrimExpr body_;           // Lambda最核心的Compute过程
 };
 
-Stmt Inline(Stmt stmt, Operation f, Array<Var> args, PrimExpr body) {
+Stmt Inline(Stmt stmt, Operation f, Array<Var> args, PrimExpr body) {                 // 将(f, args, body)对应的一个ComputeOp Inline到一个stmt上
   CHECK_EQ(f->num_outputs(), 1) << "can only inline output single value operation";
   Stmt ret = OperationInliner(f, args, body)(std::move(stmt));
   if (ret.same_as(stmt)) return ret;

@@ -203,9 +203,9 @@ class PlaceholderOp : public Operation {
 class TVM_DLL BaseComputeOpNode : public OperationNode {
  public:
   /*! \brief IterVar on each axis */
-  Array<IterVar> axis;
+  Array<IterVar> axis;            // 就是Lambda中的那几个axis
   /*! \brief IterVar on each reduction axis, if the body is a Reduce */
-  Array<IterVar> reduce_axis;
+  Array<IterVar> reduce_axis;     // 一般就是在Compute函数中额外定义的几个ReduceAxis
   // override functions
   Array<IterVar> root_iter_vars() const final;
   Array<PrimExpr> output_shape(size_t idx) const final;

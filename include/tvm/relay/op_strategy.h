@@ -92,10 +92,10 @@ class OpImplementation : public ObjectRef {
 class OpSpecializationNode : public Object {
  public:
   /*! \brief List of implementations. */
-  Array<OpImplementation> implementations;
+  Array<OpImplementation> implementations;  // 这种Specialization中的Implementation
   /*! \brief Condition to enable the specialization.
    *    Could be undefined to represent generic case. */
-  te::SpecializedCondition condition;
+  te::SpecializedCondition condition;       // 启用这种Specialization的条件
 
   void VisitAttrs(tvm::AttrVisitor* v) {
     v->Visit("condition", &condition);

@@ -79,11 +79,11 @@ void SplitHelper(StageNode* self, IterVar parent, PrimExpr factor, PrimExpr npar
   leaf_vars.insert(leaf_vars.begin() + pos, outer);
 }
 
-Stage::Stage(Operation op) {
+Stage::Stage(Operation op) {                              // 为一个Op创造一个开始的默认的Stage
   auto n = make_object<StageNode>();
-  n->op = op;
+  n->op = op;                                             
   n->origin_op = op;
-  n->all_iter_vars = op->root_iter_vars();
+  n->all_iter_vars = op->root_iter_vars();                // op中所有的正常的axis和reduce axis
   // remove opaque var from leaf.
   Array<IterVar> clean;
   for (IterVar iv : n->all_iter_vars) {
@@ -624,24 +624,25 @@ bool ScheduleNode::Contain(const Operation& op) const {
   return stage_map.find(op) != stage_map.end();
 }
 
-Schedule::Schedule(Array<Operation> ops) {        // 为相应ComputeOp创建Schedule
+Schedule::Schedule(Array<Operation> ops) {        // 为相应ComputeOps创建Schedule
   auto n = make_object<ScheduleNode>();
   data_ = n;
-  n->outputs = ops;
-  auto g = te::CreateReadGraph(n->outputs);                       // ReadGraph
-  Array<Operation> post_order = te::PostDFSOrder(n->outputs, g);  // 以PostDFS的顺序遍历这个图
+  n->outputs = ops;                                               // 从输出的ComputeOp出发
+  auto g = te::CreateReadGraph(n->outputs);                       // 创建一个Map<ComputeOp, InputTensors>，用于帮助之后遍历这个compute中的subgraph
+  Array<Operation> post_order = te::PostDFSOrder(n->outputs, g);  // 以PostDFS的顺序遍历这个图，PostDFS的序列作为结果返回
   // output set.
   std::unordered_set<Operation> output_set;
-  for (Operation x : ops) {
+  for (Operation x : ops) {                                       // 可能一个ComputeOp会产生多个OutputTensors，故而输出的ops中可能有重复的ComputeOp，这里去除重复
     output_set.insert(x);
   }
   for (Operation op : post_order) {          
-    Stage stage(op);                                      // 为op构建一个初始的stage      
+    Stage stage(op);                                      // 为每个ComputeOp构建一个初始的默认stage      
     stage->is_output = output_set.count(op) != 0;
     n->stages.push_back(stage);                           // stage加入到schedule中相关成员中
     n->stage_map.Set(op, stage);                          // 这里只是为每个op创建了一个对应的stage，但并没有说怎么去优化
-    // mark scan updates.                                 // 这些东西都是在python层面去调用stage中相关函数去实现的
-    if (const ScanOpNode* scan = op.as<ScanOpNode>()) {
+    // mark scan updates.                                 // 到此就没了，这就是默认的stage
+                                                          // 这些东西都是在python层面去实现的
+    if (const ScanOpNode* scan = op.as<ScanOpNode>()) {   // 不走此分支
       Array<Tensor> inputs;
       for (Tensor t : scan->state_placeholder) {
         inputs.push_back(t);
@@ -806,7 +807,7 @@ TVM_STATIC_IR_FUNCTOR(ReprPrinter, vtable)
       p->stream << ')';
     });
 
-TVM_REGISTER_GLOBAL("te.CreateSchedule").set_body_typed(create_schedule);
+TVM_REGISTER_GLOBAL("te.CreateSchedule").set_body_typed(create_schedule);     // 创建schedule
 
 TVM_REGISTER_GLOBAL("te.StageSetScope").set_body_method(&Stage::set_scope);
 

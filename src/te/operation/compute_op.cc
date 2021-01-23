@@ -61,7 +61,7 @@ inline bool ReduceEqual(const tir::ReduceNode* a, const tir::ReduceNode* b) {
 
 int ComputeOpNode::num_outputs() const { return body.size(); }
 
-Array<IterVar> BaseComputeOpNode::root_iter_vars() const {
+Array<IterVar> BaseComputeOpNode::root_iter_vars() const {    // 返回lambda中的那几个axis和compute中定义的那几个ReduceAxis
   if (reduce_axis.size() == 0) return axis;
   Array<IterVar> ret = axis;
   for (IterVar iv : reduce_axis) {
@@ -86,6 +86,7 @@ Array<PrimExpr> BaseComputeOpNode::output_shape(size_t idx) const {
   return shape;
 }
 
+// C++中实现的compute
 Tensor compute(Array<PrimExpr> shape, FCompute fcompute, std::string name, std::string tag,
                Map<String, ObjectRef> attrs) {
   // compute dimension.

@@ -54,13 +54,13 @@ void OpSpecialization::AddImplementation(tvm::relay::FTVMCompute fcompute,
 
 void OpStrategy::AddImplementation(FTVMCompute fcompute, FTVMSchedule fschedule, String name,
                                    int plevel) {
-  auto curr_cond = te::SpecializedCondition::Current();             // 获取一下当前的SpecializedCondition
+  auto curr_cond = te::SpecializedCondition::Current();             // 获取一下系统中当前的SpecializedCondition
   auto self = this->operator->();
-  Array<OpSpecialization> specializations = self->specializations;  // 获取一下这个OpStrategy当前的specializations
+  Array<OpSpecialization> specializations = self->specializations;
   OpSpecialization op_spec;
-  for (OpSpecialization op_spec : specializations) {                // 如果这个OpStrategy针对这个condition已经有specialization
-    if (op_spec->condition == curr_cond) {                          // 则往这个op_specialization中添加对应的Implementation
-      op_spec.AddImplementation(fcompute, fschedule, std::move(name), plevel); 
+  for (OpSpecialization op_spec : specializations) {                // 遍历一下这个OpStrategy当前的specializations
+    if (op_spec->condition == curr_cond) {                          // 则往满足启用这个op_specialization的条件
+      op_spec.AddImplementation(fcompute, fschedule, std::move(name), plevel);  // 在其中添加对应的Implementation
       return;
     }
   }
@@ -101,7 +101,7 @@ TVM_REGISTER_GLOBAL("relay.op._OpStrategyAddImplementation")
       FTVMSchedule schedule = args[2];
       std::string name = args[3];
       int plevel = args[4];
-      strategy.AddImplementation(compute, schedule, name, plevel);
+      strategy.AddImplementation(compute, schedule, name, plevel);    // 向一个Strategy中添加一个Implementation
     });
 
 }  // namespace relay

@@ -55,7 +55,7 @@ def placeholder(shape, dtype=None, name="placeholder"):
         shape, dtype, name)
 
 
-def compute(shape, fcompute, name="compute", tag="", attrs=None):
+def compute(shape, fcompute, name="compute", tag="", attrs=None):       # compute，返回一个Tensor
     """Construct a new tensor by computing over the shape domain.
 
     The compute rule is result[axis] = fcompute(axis)
@@ -90,7 +90,7 @@ def compute(shape, fcompute, name="compute", tag="", attrs=None):
     # for python3
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     ndim = len(shape)
-    code = fcompute.__code__        # code就是你的fcompute那个lambda的字符串
+    code = fcompute.__code__        # code就是你的fcompute那个lambda
 
     out_ndim = ndim
     if code.co_argcount == 0:
@@ -102,17 +102,19 @@ def compute(shape, fcompute, name="compute", tag="", attrs=None):
     if out_ndim != len(arg_names):
         raise ValueError("fcompute do not match dimension, ndim=%d" % ndim)
 
-    dim_var = [tvm.tir.IterVar((0, s), x, 0) for x, s in zip(arg_names, shape[:out_ndim])]  #迭代变量
+    dim_var = [tvm.tir.IterVar((0, s), x, 0) for x, s in zip(arg_names, shape[:out_ndim])]  # 用那四个oshape构造四个迭代变量
     # print(dim_var)
-    body = fcompute(*[v.var for v in dim_var])              # 替换lambda中的值
-    # print(body)
+    # for v in dim_var:
+    #     print(v.var)
 
+    body = fcompute(*[v.var for v in dim_var])              # lambda返回的是一个PrimExpr，维护的是最核心的那一句计算语句
+                                                            # dim_var维护了一个循环做这个计算语句的空间，这样子就进行了解耦
     if isinstance(body, _tensor.TensorIntrinCall):
         for i, s in enumerate(shape[out_ndim:]):
             var_name = "ax" + str(i)
             dim_var.append(tvm.tir.IterVar((0, s), var_name, 4))
-        op_node = _ffi_api.TensorComputeOp(name,                    # 构建了一个TensorComputeOp
-                                           tag,
+        op_node = _ffi_api.TensorComputeOp(name,                    # 构建了一个TensorComputeOp，不过没走这个分支
+                                           tag,                     # src/te/operation/tensor_compute_op.cc 73行
                                            dim_var,
                                            body.reduce_axis,
                                            out_ndim,
@@ -127,8 +129,8 @@ def compute(shape, fcompute, name="compute", tag="", attrs=None):
         op_node = _ffi_api.ComputeOp(                               # 用python中的compute构建C++中的ComputeOp
             name, tag, attrs, dim_var, body)                        # src/te/operation/compute_op.cc 145行
 
-    num = op_node.num_outputs
-    outputs = tuple(op_node.output(i) for i in range(num))
+    num = op_node.num_outputs                               
+    outputs = tuple(op_node.output(i) for i in range(num))          # 调用output()，返回te::Tensor，这个Tensor其实只是个shape和dtype域上的计算
     return outputs[0] if num == 1 else outputs
 
 

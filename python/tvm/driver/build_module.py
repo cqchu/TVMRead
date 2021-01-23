@@ -81,7 +81,7 @@ def get_binds(args, compact=False, binds=None):
     return binds, arg_list
 
 
-def form_irmodule(sch, args, name, binds):
+def form_irmodule(sch, args, name, binds):                              # 真正的Lowering函数
     """According to the given schedule, form a function.
 
     Parameters
@@ -169,11 +169,11 @@ def lower(sch,                                                      # 终于到�
 
     # Phase 0
     if isinstance(sch, schedule.Schedule):
-        mod = form_irmodule(sch, args, name, binds)
+        mod = form_irmodule(sch, args, name, binds)         # Relay -> TIR
     else:
         mod = sch
 
-    pass_list = lower_phase0
+    pass_list = lower_phase0                                # 后面的这些pass都是对TIR的一个优化
     # Phase 1
     pass_list += [
         tvm.tir.transform.InjectPrefetch(),

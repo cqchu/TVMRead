@@ -47,6 +47,7 @@ def lower(sch, inputs, func_name, source_func):     # 真正的根据Schedule去
 
     try:
         f = tvm.driver.lower(sch, inputs, name=func_name)       # 真正的lower函数，真的嵌套吐了
+        print(f)
         # logging.debug("lower function %s", func_name)
         # logging.debug("%s", _build.lower(sch, inputs, simple_mode=True))
     except Exception:

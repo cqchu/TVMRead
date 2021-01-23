@@ -123,7 +123,7 @@ def get_valid_implementations(op, attrs, inputs, out_type, target): # 把这个O
         strategy = fstrategy(attrs, inputs, out_type, target)   # 获取了这个op的Strategy
     analyzer = tvm.arith.Analyzer()
     ret = []
-    for spec in strategy.specializations:
+    for spec in strategy.specializations:                       # 遍历
         if spec.condition:
             # check if all the clauses in the specialized condition are true
             flag = True

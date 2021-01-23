@@ -1196,7 +1196,7 @@ def floormod(a, b):
     return _ffi_api._OpFloorMod(a, b)
 
 
-def comm_reducer(fcombine, fidentity, name="reduce"):
+def comm_reducer(fcombine, fidentity, name="reduce"):       # 就是返回一个函数，由那个函数去reduce
     """Create a commutative reducer for reduction.
 
     Parameters

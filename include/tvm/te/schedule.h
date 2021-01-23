@@ -442,17 +442,17 @@ class StageNode : public Object {
    * \brief The operation of stage, can be different from original op.
    *  If it is null, then this stage is a group stage.
    */
-  Operation op;
+  Operation op;                         // 初始时指向这个Stage对应的那个ComputeOp
   /*!
    * \brief The original operator.
    *  The op field can change during schedule to alternate the dataflow,
    *  while origin_op remains fixed.
    */
-  Operation origin_op;
+  Operation origin_op;                  // 初始时指向这个Stage对应的那个ComputeOp
   /*! \brief All the nodes in the iter var */
-  Array<IterVar> all_iter_vars;
+  Array<IterVar> all_iter_vars;         // 初始时是ComputeOp对应的那个lambda的axis和reduce axis
   /*! \brief The current active leaf iter vars in the stage. */
-  Array<IterVar> leaf_iter_vars;    // 初始时是reduce axis
+  Array<IterVar> leaf_iter_vars;        // 所有的非kOpaque的axis， --- 初始时是reduce axis，不确定
   /*!
    * \brief Specify threads to be launched at the stage.
    *  This is only valid for composite ops such as Scan.
@@ -515,18 +515,18 @@ class StageNode : public Object {
 class ScheduleNode : public Object {
  public:
   /*! \brief The output operations in original data flow graph */
-  Array<Operation> outputs;
-  /*!
+  Array<Operation> outputs;                         // 这个Compute中输出Tensor对应的那些ComputeOp，如果一个ComputeOp产生了多个OutputTensor
+  /*!                                               // 则这个Array中有重复的元素
    * \brief list of all stages for ops.
    * The stages are sorted in dependency order.
    */
-  Array<Stage> stages;
+  Array<Stage> stages;                              // 这个Schedule中所有的Stages
   /*!
    * \brief List of all stage groups.
    */
   Array<Stage> groups;
   /*! \brief map of original operation to the stages */
-  Map<Operation, Stage> stage_map;
+  Map<Operation, Stage> stage_map;                  // 用于记录每个ComputeOp分别对应哪个Stage
   /*!
    * \brief Internal stage map to map internal ops to stages.
    *  This is created on demand and can be invalidated.
@@ -568,7 +568,7 @@ class ScheduleNode : public Object {
  * \param ops The ops to be scheduled.
  * \return sch The created Schedule.
  */
-inline Schedule create_schedule(Array<Operation> ops) { return Schedule(ops); }   // 为相应的Op创建Schedule
+inline Schedule create_schedule(Array<Operation> ops) { return Schedule(ops); }   // 为相应的多个Operation/ComputeOp创建Schedule并返回
 
 /*! \brief node container for IterVar attr */
 class IterVarAttrNode : public Object {

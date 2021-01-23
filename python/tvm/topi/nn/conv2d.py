@@ -166,7 +166,7 @@ def _get_workload(data, kernel, stride, padding, out_dtype, data_layout='NCHW'):
     return Workload(data.dtype, out_dtype, IH, IW, CI, GRPS, CO, KH, KW, HPAD, WPAD, HSTR, WSTR)
 
 
-def conv2d_nchw(Input, Filter, stride, padding, dilation, out_dtype=None):
+def conv2d_nchw(Input, Filter, stride, padding, dilation, out_dtype=None):  # 构建了一个ComputeOp，然后获取这个ComputeOp的输出并返回
     """Convolution operator in NCHW layout.
 
     Parameters
@@ -220,11 +220,11 @@ def conv2d_nchw(Input, Filter, stride, padding, dilation, out_dtype=None):
     # compute graph
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
-    temp = pad(Input, pad_before, pad_after, name="pad_temp")
+    temp = pad(Input, pad_before, pad_after, name="pad_temp")       # pad操作，里面也是一个compute
     rc = te.reduce_axis((0, in_channel), name='rc')
     ry = te.reduce_axis((0, kernel_h), name='ry')
     rx = te.reduce_axis((0, kernel_w), name='rx')
-    return te.compute(
+    return te.compute(                                              # 第2个compute
         (batch, out_channel, out_height, out_width),
         lambda nn, ff, yy, xx: te.sum(
             temp[nn, rc, yy * stride_h + ry * dilation_h,
@@ -359,9 +359,9 @@ def conv2d_nhwc(Input, Filter, stride, padding, dilation, out_dtype='float32'):
     rx = te.reduce_axis((0, kernel_w), name='rx')
     Output = te.compute(
         (batch, out_height, out_width, out_channel),
-        lambda nn, yy, xx, ff: te.sum(
-            PaddedInput[nn, yy * stride_h + ry * dilation_h,
-                        xx * stride_w + rx * dilation_w, rc].astype(out_dtype) *
+        lambda nn, yy, xx, ff: te.sum(                                              # 这个lambda返回的是te.sum的返回值
+            PaddedInput[nn, yy * stride_h + ry * dilation_h,                        # 这些PaddedInput是python里的Tensor，定义在python/tvm/te/tensor.py中
+                        xx * stride_w + rx * dilation_w, rc].astype(out_dtype) *    # Tensor类定义了__getitem__()函数，所以可以取下标
             Filter[ry, rx, rc, ff].astype(out_dtype), axis=[ry, rx, rc]),
         name="Conv2dOutput", tag="conv2d_nhwc")
     return Output

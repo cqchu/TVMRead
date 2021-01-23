@@ -495,20 +495,20 @@ void RebaseNonZeroMinLoop(ScheduleNode* sch) {
 void InjectInline(ScheduleNode* sch) {
   sch->InvalidateCache();
 
-  std::vector<Array<PrimExpr> > new_body(sch->stages.size());
+  std::vector<Array<PrimExpr> > new_body(sch->stages.size());   // 应该存的是各个ComputeOp更新之后的结果
   std::vector<bool> changed(sch->stages.size(), false);
   std::vector<Stmt> new_hybrid_body(sch->stages.size());
   std::vector<bool> hybrid_changed(sch->stages.size(), false);
   // inline all the ops
-  for (size_t i = sch->stages.size(); i != 0; --i) {
+  for (size_t i = sch->stages.size(); i != 0; --i) {        // 对于每个Stage，自叶结点向根节点遍历
     Stage stage = sch->stages[i - 1];
-    if (stage->attach_type == kInline) {
+    if (stage->attach_type == kInline) {                    // 这个for循环只处理Stage中的Inline Stage
       stage->attach_type = kInlinedAlready;
-      Array<Var> args;
-      PrimExpr body;
-      {
+      Array<Var> args;                                      // compute中那几个lambda的值
+      PrimExpr body;                                        // compute中最核心的那个body
+      {                                                     // 这个语句块获取这两个值
         // setup args
-        const ComputeOpNode* compute = stage->op.as<ComputeOpNode>();
+        const ComputeOpNode* compute = stage->op.as<ComputeOpNode>();   // 获取每个
         CHECK(compute) << "can only inline compute op";
         for (auto iv : compute->axis) {
           args.push_back(iv->var);
@@ -516,15 +516,15 @@ void InjectInline(ScheduleNode* sch) {
         CHECK_EQ(compute->body.size(), 1U) << "can only inline compute op with 1 output";
         body = compute->body[0];
       }
-      for (size_t j = i; j < sch->stages.size(); ++j) {
-        Stage s = sch->stages[j];
-        const ComputeOpNode* compute = s->op.as<ComputeOpNode>();
+      for (size_t j = i; j < sch->stages.size(); ++j) {             // 对于Stage[i]之后的每个Stage[j]，这里的之后是按照PostDFS的顺序
+        Stage s = sch->stages[j];                                   // 故而Stage[j]对应的ComputeOp在Graph拓扑里面，其实是Stage[i]对
+        const ComputeOpNode* compute = s->op.as<ComputeOpNode>();   // 应ComputeOp的父节点
         const HybridOpNode* hybrid = s->op.as<HybridOpNode>();
         if (compute) {
-          if (!new_body[j].size()) {
+          if (!new_body[j].size()) {                                // 设置初始的 new_body
             new_body[j] = compute->body;
           }
-          if (new_body[j][0]->IsInstance<tir::ReduceNode>()) {
+          if (new_body[j][0]->IsInstance<tir::ReduceNode>()) {      // ReduceNode的处理，先不管
             // specially handle reduction inline for multiplre reductions.
             const tir::ReduceNode* reduce = new_body[j][0].as<tir::ReduceNode>();
             for (size_t k = 1; k < new_body[j].size(); ++k) {
@@ -548,12 +548,12 @@ void InjectInline(ScheduleNode* sch) {
                 new_body[j].Set(k, PrimExpr(n));
               }
             }
-          } else {
-            for (size_t k = 0; k < new_body[j].size(); ++k) {
-              PrimExpr new_value = Inline(tir::Evaluate(new_body[j][k]), stage->op, args, body)
-                                       .as<tir::EvaluateNode>()
-                                       ->value;
-              if (!new_value.same_as(new_body[j][k])) {
+          } else {                                                  // 非ReduceNode
+            for (size_t k = 0; k < new_body[j].size(); ++k) {       // 为这个ComputeOp中的每个body都创建Inline Stmt
+              PrimExpr new_value = Inline(tir::Evaluate(new_body[j][k]), stage->op, args, body) // 这里的staget->op以及args和body是stage[i]的
+                                       .as<tir::EvaluateNode>()                                 // 这里将之Inline到stage[j]上，即其父节点之上
+                                       ->value;                                                 // 因为这是个For循环，这里对Stage[i]的每个父节
+              if (!new_value.same_as(new_body[j][k])) {             // Update                   // 点都做了这个操作
                 new_body[j].Set(k, new_value);
                 changed[j] = true;
               }
@@ -574,7 +574,7 @@ void InjectInline(ScheduleNode* sch) {
   }
   std::unordered_map<Tensor, Tensor> repl;
   // rewrite dataflow
-  for (size_t i = 0; i < sch->stages.size(); ++i) {
+  for (size_t i = 0; i < sch->stages.size(); ++i) {             // 自根节点向叶节点遍历
     Stage s = sch->stages[i];
     if (s->attach_type == kInlinedAlready) continue;
     if (new_body[i].size()) {
@@ -690,7 +690,7 @@ void LegalizeInvalidAttach(ScheduleNode* sch) {
 
 Schedule Schedule::normalize() {
   Schedule sn = copy();
-  InjectInline(sn.operator->());
+  InjectInline(sn.operator->());          // 确定Schedule中需要修改的op，然后替换Schedule中的op
   RebaseNonZeroMinLoop(sn.operator->());
   LegalizeInvalidAttach(sn.operator->());
   return sn;

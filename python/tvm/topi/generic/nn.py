@@ -177,8 +177,8 @@ def schedule_conv2d_winograd_weight_transform(outs):
     s = te.create_schedule([x.op for x in outs])
     output = outs[0]
     _, G = s[output].op.input_tensors
-    s[G].compute_inline()
-    eps, nu, co, ci = s[output].op.axis
+    s[G].compute_inline()                   # 获取了`G`这个`tensor`对应的那个`op`对应的那个`Stage`，然后调用`Stage::compute_inline()`函数
+    eps, nu, co, ci = s[output].op.axis     # python/tvm/te/schedule.py 312行
     r_kh, r_kw = s[output].op.reduce_axis
     s[output].reorder(co, ci, r_kh, r_kw, eps, nu)
     for axis in [r_kh, r_kw, eps, nu]:

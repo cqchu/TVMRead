@@ -83,7 +83,7 @@ class Schedule(Object):
         sch : Schedule
             The normalized schedule.
         """
-        return _ffi_api.ScheduleNormalize(self)
+        return _ffi_api.ScheduleNormalize(self)     # src/te/schedule/schedule_lang.cc 872行
 
     def create_group(self, outputs, inputs, include_inputs=False):
         """Create stage group by giving output and input boundary.
@@ -317,7 +317,7 @@ class Stage(Object):
         parent : Stage
             The parent stage
         """
-        _ffi_api.StageComputeInline(self)
+        _ffi_api.StageComputeInline(self)   # src/te/schedule/schedule_lang.cc 838行
 
     def compute_root(self):
         """Attach the stage at parent, and mark it as root

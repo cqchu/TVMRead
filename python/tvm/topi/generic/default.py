@@ -20,14 +20,14 @@ import tvm
 from tvm import te
 
 
-def default_schedule(outs, auto_inline):
+def default_schedule(outs, auto_inline):                  
     """Default schedule for llvm."""
     target = tvm.target.Target.current(allow_none=False)
     outs = [outs] if isinstance(outs, te.tensor.Tensor) else outs
     if target.kind.name not in ("llvm", "c"):
         raise RuntimeError("schedule not registered for '%s'" % target)
-    s = te.create_schedule([x.op for x in outs])        # 为相关op创建Schedule
-    if auto_inline:
+    s = te.create_schedule([x.op for x in outs])        # 对于每个输出Tensor分别获取其对应的te::Operation，然后为之创建一个默认的schedule
+    if auto_inline:                                     # 默认为关
         x = outs[0]
         te.schedule.AutoInlineInjective(s)
         s[x].fuse(s[x].op.axis)
